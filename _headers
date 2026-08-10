@@ -7,6 +7,12 @@
 /assets/bg.jpg
   Cache-Control: public, max-age=31536000, immutable
 
+# Link scrapers cache whatever they are handed, so this one needs a policy of
+# its own rather than the platform default — an hour, so a redesign reaches
+# previews the same day.
+/opengraph.png
+  Cache-Control: public, max-age=3600
+
 /assets/css/*
   Cache-Control: public, max-age=3600
 

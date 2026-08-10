@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Begambeli Radio — one signal, one schedule</title>
+<meta name="description" content="A small internet radio station from begambeli.com. Everyone listening hears the same second of the same song.">
+<meta name="theme-color" content="#141018">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Begambeli Radio">
+<meta property="og:title" content="Begambeli Radio">
+<meta property="og:description" content="One signal, one schedule. Everyone listening hears the same second of the same song.">
+<meta property="og:url" content="https://radio.begambeli.com/">
+<meta property="og:image" content="https://radio.begambeli.com/opengraph.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Begambeli Radio, set in a carved window frame against a violet-black ground.">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23141018'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23E0407A'/%3E%3C/svg%3E">
+<link rel="preload" href="assets/fonts/anton-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/plexmono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/station.css">
+<script type="module" src="assets/js/main.js"></script>
+</head>
+
+<body class="is-closed">
+
+<!-- The front door. Browsers will not start audio without a click, so the
+     click is the thing rather than an obstacle in front of it. -->
+<div class="gate" id="gate">
+  <div class="gate__inner">
+    <p class="gate__eyebrow">begambeli.com</p>
+    <h1 class="gate__title">Begambeli<br>Radio</h1>
+    <p class="gate__lede">
+      One signal on a fixed schedule. Whoever else has this page open right now
+      is hearing this same second of this same song.
+    </p>
+    <button class="gate__button" id="tune-in" type="button" disabled>Tune in</button>
+    <p class="gate__now" id="gate-now">Finding the signal</p>
+  </div>
+</div>
+
+<div class="station" id="station" inert>
+
+  <header class="masthead">
+    <p class="wordmark">Begambeli Radio</p>
+    <p class="signal" id="signal" data-state="off">
+      <span class="signal__dot" aria-hidden="true"></span>
+      <span id="signal-text">Off air</span>
+    </p>
+  </header>
+
+  <main class="stage">
+
+    <!-- The iframe has to stay visible, so it is the window the whole layout
+         is built around: a 3:2 pane set deep into a carved frame. -->
+    <div class="window">
+      <div class="window__glass">
+        <div id="player"></div>
+      </div>
+    </div>
+
+    <section class="now">
+      <h2 class="visually-hidden">On air</h2>
+      <div class="now__text" aria-live="polite">
+        <p class="now__title" id="title">&nbsp;</p>
+        <p class="now__artist" id="artist">&nbsp;</p>
+      </div>
+      <p class="now__time">
+        <span id="elapsed">0:00</span><span class="now__slash">/</span><span id="total">0:00</span>
+      </p>
+    </section>
+
+    <p class="notice" id="notice" role="status" hidden></p>
+
+    <section class="loop">
+      <h2 class="loop__label">The loop</h2>
+      <div class="rail" id="rail" role="img" aria-label="The broadcast loop."></div>
+      <p class="loop__caption" id="rail-caption"></p>
+    </section>
+
+  </main>
+
+  <footer class="deck">
+    <div class="deck__controls">
+      <button class="deck__toggle" id="toggle" type="button" aria-pressed="false">Play</button>
+      <label class="deck__volume">
+        <span class="deck__volume-label">Volume</span>
+        <input id="volume" type="range" min="0" max="100" step="1" value="70">
+      </label>
+    </div>
+    <p class="deck__note">
+      A broadcast, not a playlist. Pausing quiets your speakers; the station
+      keeps running without you, and pressing play rejoins it wherever it has
+      got to.
+    </p>
+  </footer>
+
+</div>
+
+</body>
+</html>

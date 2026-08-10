@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../assets/css/station.css">
+<style>
+  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden}
+  .og{
+    position:relative;width:1200px;height:630px;display:grid;
+    grid-template-columns:1fr auto;gap:64px;align-items:center;
+    padding:72px 76px;background:var(--night);
+    background-image:radial-gradient(110% 85% at 8% 0%, rgba(224,64,122,.10), transparent 60%);
+  }
+  .og__eyebrow{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--dust);padding-bottom:20px;
+    border-bottom:1px solid rgba(122,106,76,.45)}
+  .og__title{font-family:var(--display);font-size:132px;line-height:.84;letter-spacing:.005em;
+    text-transform:uppercase;color:var(--paper);margin:34px 0 0}
+  .og__lede{font-family:var(--mono);font-size:21px;line-height:1.5;color:var(--dust);
+    margin-top:30px;max-width:23ch}
+  .og__rail{position:relative;height:26px;margin-top:38px;width:520px;
+    border-right:1px solid rgba(122,106,76,.55);border-bottom:1px solid rgba(122,106,76,.55)}
+  .og__rail span{position:absolute;top:0;bottom:0;background:rgba(237,228,232,.035);
+    border-left:1px solid rgba(122,106,76,.55)}
+  .og__rail span.on{background:rgba(224,64,122,.16)}
+  .og__tick{position:absolute;top:-5px;bottom:-5px;width:3px;background:var(--bougain);
+    box-shadow:0 0 12px rgba(224,64,122,.7)}
+  .og .window{padding:22px}
+  .og .window__glass{width:344px;height:344px;aspect-ratio:auto;display:grid;
+    place-content:center;justify-items:center;gap:18px;background:#08060a}
+  .og__dot{width:16px;height:16px;border-radius:50%;background:var(--bougain);
+    box-shadow:0 0 26px 5px rgba(224,64,122,.45)}
+  .og__onair{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--paper)}
+  .og .window::before{inset:8px;background-size:22px 2px,2px 22px,22px 2px,2px 22px,22px 2px,2px 22px,22px 2px,2px 22px}
+</style></head>
+<body>
+<div class="og">
+  <div>
+    <p class="og__eyebrow">begambeli.com</p>
+    <h1 class="og__title">Begambeli<br>Radio</h1>
+    <p class="og__lede">One signal, one schedule. Everyone hears the same second of the same song.</p>
+    <div class="og__rail">
+      <span style="left:0%;width:9.25%"></span>
+      <span style="left:9.25%;width:10.82%"></span>
+      <span style="left:20.07%;width:8.36%"></span>
+      <span style="left:28.43%;width:12.24%"></span>
+      <span class="on" style="left:40.67%;width:15.75%"></span>
+      <span style="left:56.42%;width:10.02%"></span>
+      <span style="left:66.44%;width:9.65%"></span>
+      <span style="left:76.09%;width:12.28%"></span>
+      <span style="left:88.37%;width:11.63%"></span>
+      <i class="og__tick" style="left:48%"></i>
+    </div>
+  </div>
+  <div class="window"><div class="window__glass">
+    <span class="og__dot"></span><span class="og__onair">On air</span>
+  </div></div>
+</div>
+</body></html>

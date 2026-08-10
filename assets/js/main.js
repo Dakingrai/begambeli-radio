@@ -232,6 +232,26 @@ function goOffAir() {
   updateToggle();
 }
 
+/**
+ * Come back to a tab and pick the broadcast up again.
+ *
+ * Called several times after the tab returns, not once. Suspending a
+ * background tab stops the audio, but that pause is delivered through the
+ * iframe and routinely arrives *after* the tab is already visible again — so a
+ * single attempt at the moment of return can be undone a beat later by an event
+ * describing something that happened a minute ago. Retrying costs nothing:
+ * every branch below is a no-op once the station is running again.
+ */
+function rejoinAfterReturn() {
+  if (!state.player || state.userPaused) return;
+  if (document.visibilityState !== 'visible') return;
+  if (state.live) {
+    checkDrift();
+    return;
+  }
+  goOnAir();
+}
+
 /** Unrecoverable: say so plainly and stop. */
 function goDark(message) {
   state.live = false;
@@ -532,12 +552,14 @@ async function start() {
     if (document.visibilityState !== 'visible') return;
 
     await measureSkew();
-    if (state.player && !state.userPaused) {
-      // An hour in a background tab must come back to the live broadcast, not
-      // to the bar of music it was suspended on.
-      if (state.live) checkDrift();
-      else goOnAir();
-    }
+
+    // An hour in a background tab must come back to the live broadcast, not to
+    // the bar of music it was suspended on. The later passes are there to
+    // outlast the stale pause the freeze emits on its way out.
+    rejoinAfterReturn();
+    setTimeout(rejoinAfterReturn, 1500);
+    setTimeout(rejoinAfterReturn, 4000);
+
     preview();
   });
 }

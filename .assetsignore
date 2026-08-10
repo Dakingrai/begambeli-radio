@@ -1,0 +1,24 @@
+# Files here are NOT uploaded as static assets.
+#
+# The assets directory is the repo root, so everything that is not the site
+# itself has to be excluded by name — including anything the build step
+# installs for its own use. A 122 MiB workerd binary inside node_modules will
+# fail the deploy outright, since Workers caps a single asset at 25 MiB.
+#
+# gitignore syntax. Keep index.html, opengraph.png, _headers, assets/ and
+# data/tracks.json — those are the site.
+
+node_modules
+.git
+.wrangler
+wrangler.jsonc
+.assetsignore
+
+# Local tooling and docs, not part of the broadcast.
+scripts
+data/ids.txt
+package.json
+README.md
+.env.example
+.env
+.gitignore

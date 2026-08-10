@@ -1,0 +1,12 @@
+{
+  // A static site with no Worker script — Cloudflare serves the files directly.
+  // Committing this stops `wrangler deploy` guessing the settings on each build
+  // (its guess added a Node compatibility flag a static site has no use for).
+  //
+  // What actually ships is decided by .assetsignore, not by this file.
+  "name": "begambeli-radio",
+  "compatibility_date": "2026-08-10",
+  "assets": {
+    "directory": "."
+  }
+}

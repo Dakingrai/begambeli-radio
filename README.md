@@ -60,19 +60,21 @@ A tab backgrounded for an hour rejoins live rather than resuming mid-bar.
 No build step, no dependencies. Any static server:
 
 ```bash
-python3 -m http.server 8788     # or: npm run serve
+python3 -m http.server 8788
 ```
 
 Then open <http://localhost:8788>. ES modules need a real server; opening `index.html`
 over `file://` will not work.
 
 ```bash
-node scripts/test-schedule.mjs  # or: npm test
+node scripts/test-schedule.mjs
 ```
 
-`package.json` exists only so Node treats `assets/js/*.js` as ES modules, which is what
-lets the test import the exact code the browser runs. There are no dependencies and
-nothing to install. **Cloudflare Pages must be configured with no build command.**
+`assets/js/package.json` contains nothing but `{"type": "module"}`, so Node treats the
+station's scripts as ES modules and the test can import the exact code the browser runs.
+It lives there rather than at the repo root deliberately — a root `package.json` makes
+Cloudflare's build detection install dependencies, and anything it installs lands inside
+the directory being deployed. See the deploy notes below.
 
 ## Editing the playlist
 
@@ -148,7 +150,18 @@ palette:
 
 ## Deploying
 
-Cloudflare Pages, connected to this repo. Framework preset **None**, build command
-**empty**, output directory `/`. `_headers` sets the cache policy: 60 seconds on
-`tracks.json` so playlist changes reach listeners promptly, and a year on covers and fonts,
-which never change. After the first setup, `git push` deploys.
+Cloudflare, connected to this repo, deploying as a static-asset Worker via
+`npx wrangler deploy`. `wrangler.jsonc` pins the settings so each build does not re-guess
+them. After the first setup, `git push` deploys.
+
+`_headers` sets the cache policy: 60 seconds on `tracks.json` so playlist changes reach
+listeners promptly, and a year on covers and fonts, which never change.
+
+**The assets directory is the repo root**, which means the deploy uploads everything not
+listed in `.assetsignore`. That matters more than it sounds: the build step installs
+tooling for its own use, and `node_modules/workerd/bin/workerd` is about 122 MiB against a
+25 MiB per-asset limit. A deploy that starts failing with *"Asset too large"* is almost
+always something new appearing at the root — check `.assetsignore` first.
+
+For the same reason, do not add a `package.json` at the repo root. It triggers a
+dependency install whose output sits inside the directory being deployed.

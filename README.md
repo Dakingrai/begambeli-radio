@@ -119,28 +119,46 @@ plays the next one that works, and rejoins the schedule at the following boundar
 
 ## Design
 
-Newari lattice-window carving at dusk, which is where the palette comes from: violet-black
-timber (`#141018`), dull brass hairlines held deliberately low-chroma (`#7A6A4C`), and one
-live colour — bougainvillea magenta (`#E0407A`), which is what *begambeli* means. The
-magenta is rationed to three jobs: the on-air dot, the position mark, and the focus ring,
-so it always means something is happening.
+A photograph, and glass floating on top of it. A fixed full-bleed background, a masthead of
+frosted pills, the video in the middle, and one glass panel at the bottom holding everything
+you can actually do. No webfonts — `system-ui` throughout, so the page carries no type
+payload at all.
 
-Anton for the ident and track titles, IBM Plex Mono for everything else. The mono carries a
-timecode-and-rebate register that keeps the page from reading as a music player. Both are
-self-hosted in `assets/fonts/`; nothing loads from a third-party CDN at runtime.
+Colour is almost entirely white at 100 / 70 / 55% over a scrimmed image. The exception is
+bougainvillea magenta (`#e0407a`), which is what *begambeli* means: it is the live dot, the
+focus ring, and the hot end of the loop gradient, and it is the only hue in the interface
+that carries information.
 
-The signature element is the **loop rail** — the entire playlist as one bar, each track a
-segment sized to its duration, with a magenta mark riding across it. It is not a scrubber
-and is deliberately not interactive, because you cannot scrub a broadcast. It makes the
-loop visible instead of hiding it, including while you are paused.
+### Swapping the background
 
-YouTube's terms require the player to stay visible and at least 200×200, so the layout is
-built around it rather than apologising for it: a 16:9 pane recessed into a carved frame
-with brass corner brackets. Below about 360px the 200px floor takes over from the ratio and
-a little letterboxing returns, which is the correct trade.
+`assets/bg.jpg` is a generated placeholder — a dark plum-to-amber wash standing in for a
+photograph. **Replace the file with one of your own frames and nothing else needs to
+change.** 1920×1080 or larger, and prefer something dark and low-contrast; the scrim in
+`.backdrop::after` darkens by roughly 55% at the top and bottom where the text sits, which
+is enough for a dim frame but will fight a bright one. Contrast was measured, not eyeballed:
+the tightest pairing is the 55% white caption text at 6.3:1 against the current background.
 
-`opengraph.png` is rendered from `scripts/opengraph.html` so it shares the site's fonts and
-palette:
+Everything in the bottom panel sits on frosted glass rather than directly on the image, so
+that copy stays legible whatever the photograph does. Only the masthead and the gate's
+heading sit on the bare image, and both carry a drop shadow.
+
+### The loop rail
+
+The signature element: the entire playlist as one bar, each track a segment sized to its
+duration, hairlines at the boundaries, a warm gradient filling to the current position and a
+white marker riding across it. It is not a scrubber and is deliberately not interactive,
+because you cannot scrub a broadcast. It keeps moving while you are paused, which is the
+clearest way to show that the station has not stopped just because you have.
+
+### The player
+
+YouTube's terms require the player to stay visible and at least 200×200, so it is the hero
+of the composition rather than something tucked away — the artwork is simply the thing
+itself, moving. Below about 360px the 200px floor takes over from the 16:9 ratio and a
+little letterboxing returns, which is the correct trade.
+
+`opengraph.png` is rendered from `scripts/opengraph.html`, which imports the site's own
+stylesheet so it cannot drift from the real thing:
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \

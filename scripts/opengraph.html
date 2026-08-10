@@ -2,57 +2,70 @@
 <html><head><meta charset="utf-8">
 <link rel="stylesheet" href="../assets/css/station.css">
 <style>
-  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden}
-  .og{
-    position:relative;width:1200px;height:630px;display:grid;
-    grid-template-columns:1fr auto;gap:64px;align-items:center;
-    padding:72px 76px;background:var(--night);
-    background-image:radial-gradient(110% 85% at 8% 0%, rgba(224,64,122,.10), transparent 60%);
-  }
-  .og__eyebrow{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:.22em;
-    text-transform:uppercase;color:var(--dust);padding-bottom:20px;
-    border-bottom:1px solid rgba(122,106,76,.45)}
-  .og__title{font-family:var(--display);font-size:132px;line-height:.84;letter-spacing:.005em;
-    text-transform:uppercase;color:var(--paper);margin:34px 0 0}
-  .og__lede{font-family:var(--mono);font-size:21px;line-height:1.5;color:var(--dust);
-    margin-top:30px;max-width:23ch}
-  .og__rail{position:relative;height:26px;margin-top:38px;width:520px;
-    border-right:1px solid rgba(122,106,76,.55);border-bottom:1px solid rgba(122,106,76,.55)}
-  .og__rail span{position:absolute;top:0;bottom:0;background:rgba(237,228,232,.035);
-    border-left:1px solid rgba(122,106,76,.55)}
-  .og__rail span.on{background:rgba(224,64,122,.16)}
-  .og__tick{position:absolute;top:-5px;bottom:-5px;width:3px;background:var(--bougain);
-    box-shadow:0 0 12px rgba(224,64,122,.7)}
-  .og .window{padding:22px}
-  .og .window__glass{width:344px;height:344px;aspect-ratio:auto;display:grid;
-    place-content:center;justify-items:center;gap:18px;background:#08060a}
-  .og__dot{width:16px;height:16px;border-radius:50%;background:var(--bougain);
-    box-shadow:0 0 26px 5px rgba(224,64,122,.45)}
-  .og__onair{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.28em;
-    text-transform:uppercase;color:var(--paper)}
-  .og .window::before{inset:8px;background-size:22px 2px,2px 22px,22px 2px,2px 22px,22px 2px,2px 22px,22px 2px,2px 22px}
+  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden;background:var(--ink)}
+  .og{position:relative;width:1200px;height:630px;overflow:hidden;
+      display:flex;flex-direction:column;justify-content:space-between;padding:44px 56px 48px}
+  .og__bg{position:absolute;inset:0;background:var(--ink) url(../assets/bg.jpg) center/cover no-repeat}
+  .og__bg::after{content:'';position:absolute;inset:0;
+      background:linear-gradient(to bottom,rgba(0,0,0,.45),rgba(0,0,0,.12) 38%,rgba(0,0,0,.62)),rgba(0,0,0,.18)}
+  .og__top{position:relative;display:flex;align-items:center;justify-content:space-between}
+  .og__mark{font-size:22px;font-weight:600;letter-spacing:-.01em;filter:var(--lift)}
+  .og__pill{display:inline-flex;align-items:center;gap:9px;padding:8px 18px 8px 14px;
+      font-size:18px;font-weight:500;border-radius:999px;filter:var(--lift)}
+  .og__dot{width:12px;height:12px;border-radius:50%;background:var(--live);
+      box-shadow:0 0 14px rgba(224,64,122,.95)}
+  .og__mid{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center}
+  .og__title{font-size:92px;font-weight:600;line-height:1;letter-spacing:-.035em;
+      filter:drop-shadow(0 6px 30px rgba(0,0,0,.6))}
+  .og__lede{margin-top:20px;max-width:30ch;font-size:25px;line-height:1.4;color:var(--text-2);filter:var(--lift)}
+  .og__deck{position:relative;padding:22px 26px;border-radius:24px}
+  .og__row{display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .og__now{min-width:0}
+  .og__track{font-size:27px;font-weight:600;letter-spacing:-.01em}
+  .og__artist{font-size:18px;color:var(--text-2);margin-top:2px}
+  .og__play{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.92);
+      display:grid;place-items:center;flex:none}
+  .og__rail{position:relative;height:8px;border-radius:999px;background:rgba(255,255,255,.16);margin-top:22px}
+  .og__fill{position:absolute;inset:0 auto 0 0;width:48.4%;border-radius:999px;
+      background:linear-gradient(90deg,var(--warm-a),var(--warm-b) 55%,var(--warm-c))}
+  .og__seg{position:absolute;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.3)}
+  .og__tick{position:absolute;top:50%;left:48.4%;width:16px;height:16px;border-radius:50%;background:#fff;
+      transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(0,0,0,.22),0 2px 10px rgba(0,0,0,.5)}
+  .og__meta{display:flex;justify-content:space-between;margin-top:12px;font-size:17px;color:var(--text-3)}
 </style></head>
 <body>
 <div class="og">
-  <div>
-    <p class="og__eyebrow">begambeli.com</p>
-    <h1 class="og__title">Begambeli<br>Radio</h1>
-    <p class="og__lede">One signal, one schedule. Everyone hears the same second of the same song.</p>
-    <div class="og__rail">
-      <span style="left:0%;width:9.25%"></span>
-      <span style="left:9.25%;width:10.82%"></span>
-      <span style="left:20.07%;width:8.36%"></span>
-      <span style="left:28.43%;width:12.24%"></span>
-      <span class="on" style="left:40.67%;width:15.75%"></span>
-      <span style="left:56.42%;width:10.02%"></span>
-      <span style="left:66.44%;width:9.65%"></span>
-      <span style="left:76.09%;width:12.28%"></span>
-      <span style="left:88.37%;width:11.63%"></span>
-      <i class="og__tick" style="left:48%"></i>
-    </div>
+  <div class="og__bg"></div>
+
+  <div class="og__top">
+    <div class="og__mark">Begambeli Radio</div>
+    <div class="og__pill glass"><span class="og__dot"></span><span>On air</span></div>
   </div>
-  <div class="window"><div class="window__glass">
-    <span class="og__dot"></span><span class="og__onair">On air</span>
-  </div></div>
+
+  <div class="og__mid">
+    <div class="og__title">Begambeli Radio</div>
+    <div class="og__lede">One signal, one schedule. Everyone hears the same second of the same song.</div>
+  </div>
+
+  <div class="og__deck glass">
+    <div class="og__row">
+      <div class="og__now">
+        <div class="og__track">Arbajo</div>
+        <div class="og__artist">Kutumba</div>
+      </div>
+      <div class="og__play">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="#0a0a0a"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+      </div>
+    </div>
+    <div class="og__rail">
+      <div class="og__fill"></div>
+      <span class="og__seg" style="left:9.25%"></span><span class="og__seg" style="left:20.07%"></span>
+      <span class="og__seg" style="left:28.43%"></span><span class="og__seg" style="left:40.67%"></span>
+      <span class="og__seg" style="left:56.42%"></span><span class="og__seg" style="left:66.44%"></span>
+      <span class="og__seg" style="left:76.09%"></span><span class="og__seg" style="left:88.37%"></span>
+      <span class="og__tick"></span>
+    </div>
+    <div class="og__meta"><span>9 tracks · 41:16 loop</span><span>5:34 / 6:30</span></div>
+  </div>
 </div>
 </body></html>

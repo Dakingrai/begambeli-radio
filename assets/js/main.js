@@ -321,7 +321,9 @@ function paint() {
 
 function paintRail(pos) {
   const fraction = loopOffsetAt(state.schedule, now()) / state.schedule.total;
-  el.tick.style.left = `${(fraction * 100).toFixed(4)}%`;
+  const percent = `${(fraction * 100).toFixed(4)}%`;
+  el.tick.style.left = percent;
+  el.fill.style.width = percent;
 
   for (const [i, seg] of el.segments.entries()) {
     seg.classList.toggle('is-current', i === pos.index);
@@ -336,6 +338,12 @@ function paintRail(pos) {
 
 function buildRail() {
   el.rail.replaceChildren();
+
+  // Painted first so the track boundaries and the marker sit over it.
+  el.fill = document.createElement('span');
+  el.fill.className = 'rail__fill';
+  el.rail.append(el.fill);
+
   el.segments = state.schedule.tracks.map((track, i) => {
     const seg = document.createElement('span');
     seg.className = 'rail__segment';
@@ -352,8 +360,7 @@ function buildRail() {
 
   setText(
     el.railCaption,
-    `${state.schedule.tracks.length} tracks, ${formatClock(state.schedule.total)} end to end. ` +
-      'The mark is where the station is, not where you are.',
+    `${state.schedule.tracks.length} tracks · ${formatClock(state.schedule.total)} loop`,
   );
 }
 
@@ -364,8 +371,10 @@ function setSignal(mode) {
 }
 
 function updateToggle() {
+  // The button holds two SVG glyphs and CSS picks one off aria-pressed, so the
+  // label is set as an accessible name rather than as text that would wipe them.
   el.toggle.setAttribute('aria-pressed', String(state.live));
-  setText(el.toggle, state.live ? 'Pause' : 'Play');
+  el.toggle.setAttribute('aria-label', state.live ? 'Pause' : 'Play');
 }
 
 function setNotice(message) {

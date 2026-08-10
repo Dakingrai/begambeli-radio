@@ -4,7 +4,7 @@
 /assets/covers/*
   Cache-Control: public, max-age=31536000, immutable
 
-/assets/fonts/*
+/assets/bg.jpg
   Cache-Control: public, max-age=31536000, immutable
 
 /assets/css/*

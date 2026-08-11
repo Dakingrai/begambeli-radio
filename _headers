@@ -4,8 +4,12 @@
 /assets/covers/*
   Cache-Control: public, max-age=31536000, immutable
 
+# Not immutable, unlike the covers. Those are named for their video id, so the
+# name and the bytes are the same fact. This one keeps its name when the
+# photograph behind it changes, and a year of immutable on a mutable filename
+# means a swapped background never reaches anyone who has already visited.
 /assets/bg.jpg
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=3600
 
 # Link scrapers cache whatever they are handed, so this one needs a policy of
 # its own rather than the platform default — an hour, so a redesign reaches

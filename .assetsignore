@@ -14,9 +14,12 @@ node_modules
 wrangler.jsonc
 .assetsignore
 
-# Local tooling and docs, not part of the broadcast.
+# Local tooling and docs, not part of the broadcast. Named one by one on
+# purpose: data/tracks.json is the playlist and has to ship.
 scripts
 data/ids.txt
+data/design
+
 package.json
 README.md
 .env.example

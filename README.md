@@ -51,8 +51,8 @@ against the schedule's, but only after confirming both refer to the same track. 
 boundary those two can disagree about which track is playing, and subtracting one offset
 from the other gives a meaningless number and a nonsense seek.
 
-**Pausing is not pausing.** The broadcast keeps running while you are paused — the display
-and the loop rail keep moving, and pressing play rejoins wherever the station has got to.
+**Pausing is not pausing.** The broadcast keeps running while you are paused — the title and
+the progress bar keep moving, and pressing play rejoins wherever the station has got to.
 A tab backgrounded for an hour rejoins live rather than resuming mid-bar.
 
 ## Running it locally
@@ -83,7 +83,7 @@ allowed anywhere on a line. Then:
 
 ```bash
 cp .env.example .env            # add a YouTube Data API v3 key
-node scripts/build-tracks.mjs   # or: npm run tracks
+node scripts/build-tracks.mjs
 ```
 
 That rewrites `data/tracks.json` and downloads any missing cover art. Read the warnings,
@@ -119,66 +119,59 @@ plays the next one that works, and rejoins the schedule at the following boundar
 
 ## Design
 
-A photograph, and glass floating on top of it. A fixed full-bleed background, a masthead of
-frosted pills, the video in the middle, and one glass panel at the bottom holding everything
-you can actually do. No webfonts — `system-ui` throughout, so the page carries no type
-payload at all.
+"Peek-a-boo Panda", recreated from a design handoff. Warm sage ground `#e9ede3`, ink
+`#1a1f18`, a monochrome panda that rises from behind the station's name every seven seconds
+and ducks back down, bamboo in the corner, two bougainvillea petals drifting past, and a dark
+pill player docked at the bottom. Bougainvillea magenta `#e0407a` is the only accent — the
+on-air dot, the position marker, the flower at the panda's ear, and the focus ring.
 
-Colour is almost entirely white at 100 / 70 / 55% over a scrimmed image. The exception is
-bougainvillea magenta (`#e0407a`), which is what *begambeli* means: it is the live dot, the
-focus ring, and the hot end of the loop gradient, and it is the only hue in the interface
-that carries information.
+Panda, flower, petals and bamboo are all CSS shapes; there are no image assets beyond the
+track covers. Fredoka 600 is self-hosted in `assets/fonts/` for the display face, and
+everything else is `system-ui`; nothing loads from a third-party CDN at runtime.
 
-### Swapping the background
+The mockups live in `data/design/`, which is gitignored and never deployed.
 
-`assets/bg.jpg` is the photograph. Replace the file and nothing else needs to change.
+### Two departures from the handoff, on purpose
 
-**Resize it first.** A full-resolution scan is 10–15MB, which is a miserable thing to put
-in front of someone on a phone and is the single heaviest asset on the site by two orders
-of magnitude. 2048px on the long edge at quality 55 lands around 400KB and is
-indistinguishable once the scrim is over it:
+**Muted ink is darker.** The prototype specifies `rgba(26,31,24,0.55)` for the subline and
+`0.6` for the header link. On this ground those measure about 3.6:1 and 4.3:1, under the
+4.5:1 body text needs. Both are `0.66` here, the smallest change that clears it — measured by
+differencing a text-visible against a text-hidden screenshot, so the numbers come from real
+glyph coverage rather than from an element box. They now read 5.03:1 and 4.95:1.
 
-```bash
-sips -Z 2048 --setProperty format jpeg --setProperty formatOptions 55 \
-  your-scan.jpg --out assets/bg.jpg
-```
+**Prev and next are gone.** They were drawn in the mockup, but there is nothing to skip to —
+the brief ruled them out and non-functional controls would be worse than none.
 
-**Legibility is handled, within reason.** Everything in the bottom bar sits on frosted glass
-rather than on the image, so it stays readable whatever the photograph does. The one thing
-standing on the bare picture is the station's name, and `.stage::before` lays a soft pool of
-shade under the middle of the page for exactly that reason — a bright frame will otherwise
-put white text on sunlit stone.
+Volume was not in the mockup either, but with the player hidden there is no fallback, so a
+speaker glyph sits in the pill and slides open on hover or focus.
 
-Contrast is measured rather than eyeballed, and measured properly: two screenshots, one
-with the text visible and one with it hidden, differenced to find the pixels the glyphs
-actually paint, then the glyph colour compared against the lightest background any glyph
-sits on. Against the current photograph the name reads 12.1:1 and the tightest pairing
-anywhere is the caption text at 6.1:1. Worth re-running if you swap in something much
-brighter.
+### The progress bar
 
-### The loop rail
+It is the position of the whole loop, not of the current track, which is why it reads
+`9:54 / 41:16`. Display only — a broadcast has nothing to seek to, so it is not a control.
 
-The signature element: the entire playlist as one bar, each track a segment sized to its
-duration, hairlines at the boundaries, a warm gradient filling to the current position and a
-white marker riding across it. It is not a scrubber and is deliberately not interactive,
-because you cannot scrub a broadcast. It keeps moving while you are paused, which is the
-clearest way to show that the station has not stopped just because you have.
+### The player is hidden
 
-### The player
+The original brief made "player visible and at least 200×200" a hard constraint, because it
+is what keeps a YouTube embed inside the terms of the IFrame API. This design has nowhere to
+put one, and hiding it was chosen deliberately with that trade-off understood.
 
-YouTube's terms require the player to stay visible and at least 200×200, so it is the hero
-of the composition rather than something tucked away — the artwork is simply the thing
-itself, moving. Below about 360px the 200px floor takes over from the 16:9 ratio and a
-little letterboxing returns, which is the correct trade.
+How it is hidden matters. `display:none`, `visibility:hidden` and 1×1 sizing all risk a
+browser refusing to start the embed or throttling it silently. Instead `.stage` renders the
+player at a real 356×200 and the page's own opaque ground is painted over it at a higher
+stacking level, so the iframe is fully laid out and playing but never seen. **Do not "tidy"
+this into `display:none`** — audio stops being reliable, and it will not fail consistently
+enough to be obvious.
 
 `opengraph.png` is rendered from `scripts/opengraph.html`, which imports the site's own
 stylesheet so it cannot drift from the real thing:
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \
-  --window-size=1200,630 --virtual-time-budget=4000 \
+  --window-size=1200,630 --virtual-time-budget=5000 \
   --screenshot="$PWD/opengraph.png" "file://$PWD/scripts/opengraph.html"
 ```
+
 
 ## Deploying
 

@@ -1,32 +1,52 @@
-/* Begambeli Radio
+/* Begambeli Radio — "Peek-a-boo Panda"
    ----------------------------------------------------------------------------
-   A photograph, and glass floating on top of it. Everything that is not the
-   photograph or the video is a frosted panel: white type, pill shapes, system
-   font, one warm gradient. The station's own colour — bougainvillea magenta,
-   which is what begambeli means — is the live dot and the hot end of that
-   gradient, and it is the only hue that carries meaning.
+   Recreated from design_handoff_panda_radio/panda-radio-4c.html. Warm sage
+   ground, monochrome panda, bougainvillea magenta as the only accent. One
+   screen, no scroll.
+
+   Two deliberate departures from the prototype, both measured rather than
+   guessed: the muted inks are darkened (see --ink-2), and every animation
+   stops under prefers-reduced-motion.
    -------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(../fonts/fredoka-600-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(../fonts/fredoka-600-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 :root {
   --sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
+  --display: 'Fredoka', var(--sans);
 
-  --ink: #0a0a0a;
-  --glass: rgba(12, 9, 14, 0.55);
-  --glass-solid: rgba(12, 9, 14, 0.88);
-  --edge: rgba(255, 255, 255, 0.18);
+  --bg: #e9ede3;
+  --ink: #1a1f18;
+  /* The prototype asks for 0.55 / 0.6 here. On this ground that measures about
+     3.6:1 and 4.3:1 — under the 4.5:1 body text needs. 0.66 is the smallest
+     change that clears it and is indistinguishable side by side. */
+  --ink-2: rgba(26, 31, 24, 0.66);
 
-  --live: #e0407a;
-  --warm-a: #e0407a;
-  --warm-b: #f0546a;
-  --warm-c: #f99c00;
+  --accent: #e0407a;
+  --flower: #f99c00;
+  --sage: rgba(90, 122, 84, 0.18);
+  --sage-soft: rgba(90, 122, 84, 0.14);
+  --bamboo: rgba(107, 140, 98, 0.5);
 
-  --text: #fff;
-  --text-2: rgba(255, 255, 255, 0.7);
-  --text-3: rgba(255, 255, 255, 0.55);
-
-  --lift: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.5));
-  --gap: clamp(1rem, 3.5vw, 1.75rem);
+  --pill: rgba(26, 31, 24, 0.92);
+  --on-dark-2: rgba(255, 255, 255, 0.62);
+  --on-dark-3: rgba(255, 255, 255, 0.55);
 }
 
 *,
@@ -36,27 +56,20 @@
 }
 
 html {
-  background: var(--ink);
+  background: var(--bg);
 }
 
 body {
   margin: 0;
-  min-height: 100dvh;
-  /* Transparent on purpose. body does not create a stacking context, so the
-     backdrop's negative z-index puts it in the root context — behind an opaque
-     body background, which would hide the photograph entirely. The dark base
-     lives on html instead. */
+  /* Transparent: the ground below is what paints, and it has to sit above the
+     player rather than behind it. */
   background: transparent;
-  color: var(--text);
+  color: var(--ink);
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-}
-
-body.is-closed {
-  overflow: hidden;
 }
 
 h1,
@@ -65,531 +78,619 @@ p {
   margin: 0;
 }
 
-/* Swap assets/bg.jpg for a photograph and the whole page re-tunes to it. The
-   scrim is a separate layer so it keeps working whatever goes underneath. */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background-color: var(--ink);
-  background-image: url(../bg.jpg);
-  background-size: cover;
-  background-position: 50% 50%;
-  background-repeat: no-repeat;
-}
-
-.backdrop::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  /* Two layers: a flat darkening so white type is legible over any photograph,
-     and a vertical gradient that weights the top and bottom where the UI sits. */
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.42) 0%,
-      rgba(0, 0, 0, 0.06) 40%,
-      rgba(0, 0, 0, 0.6) 100%
-    ),
-    rgba(0, 0, 0, 0.12);
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
   margin: -1px;
-  padding: 0;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
 }
 
-/* Two rings so focus reads against both the dark glass and a bright photo. */
 :focus-visible {
-  outline: 2px solid var(--live);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
-  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
 }
 
-.glass {
-  background: var(--glass);
-  backdrop-filter: blur(40px) saturate(150%);
-  -webkit-backdrop-filter: blur(40px) saturate(150%);
-  border: 1px solid var(--edge);
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
+/* The opaque ground, and the player hidden underneath it ------------------- */
 
-/* Firefox with backdrop-filter disabled would otherwise show unreadable text
-   over the photograph. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass {
-    background: var(--glass-solid);
-  }
-}
-
-/* -- the front door ------------------------------------------------------- */
-
-.gate {
+.ground {
   position: fixed;
   inset: 0;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  padding: var(--gap);
-  text-align: center;
+  z-index: 0;
+  background: var(--bg);
 }
 
-.gate[hidden] {
-  display: none;
-}
-
-.gate__inner {
-  max-width: 30rem;
-}
-
-.gate__title {
-  font-size: clamp(2rem, 8vw, 3.25rem);
-  font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.55));
-}
-
-.gate__lede {
-  margin-top: 0.9rem;
-  color: var(--text-2);
-  filter: var(--lift);
-}
-
-.gate__button {
-  margin-top: 1.75rem;
-  padding: 0.85rem 2.25rem;
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #0a0a0a;
-  background: rgba(255, 255, 255, 0.92);
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
-  transition: transform 150ms ease, background 150ms ease;
-}
-
-.gate__button:hover:not(:disabled) {
-  background: #fff;
-  transform: scale(1.04);
-}
-
-.gate__button:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.gate__button:disabled {
-  color: var(--text-2);
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid var(--edge);
-  cursor: progress;
-}
-
-.gate__now {
-  margin-top: 1.1rem;
-  font-size: 0.8125rem;
-  color: var(--text-3);
-  filter: var(--lift);
-}
-
-/* -- the station ---------------------------------------------------------- */
-
-.station {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: var(--gap);
-  min-height: 100dvh;
-  padding: var(--gap);
-}
-
-/* Before anyone tunes in there is no player and nothing playing, so an empty
-   video panel and a dead set of controls would just sit behind the gate. The
-   masthead stays — it is honestly reporting "off air". */
-.station[inert] .stage,
-.station[inert] .deck {
-  display: none;
-}
-
-/* Grid and flex children default to a min-content minimum. The video's is
-   derived from its 200px floor, which without this pushes the whole page wider
-   than a narrow phone. */
-.station,
-.station > *,
-.topbar,
-.topbar > *,
-.deck,
-.deck__head,
-.now {
-  min-width: 0;
-}
-
-/* Three tracks rather than space-between, so the live pill sits on the true
-   centre of the page and not merely between two items of unequal width. */
-.topbar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.topbar > :last-child {
-  justify-self: end;
-}
-
-.signal {
-  display: inline-flex;
-  gap: 0.5em;
-  align-items: center;
-  padding: 0.35rem 0.85rem 0.35rem 0.7rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  border-radius: 999px;
-  filter: var(--lift);
-  white-space: nowrap;
-}
-
-.signal__dot {
-  position: relative;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.45);
-  flex: none;
-}
-
-.signal[data-state='live'] .signal__dot {
-  background: var(--live);
-  box-shadow: 0 0 10px rgba(224, 64, 122, 0.9);
-}
-
-.signal[data-state='live'] .signal__dot::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--live);
-  animation: ping 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-@keyframes ping {
-  75%,
-  100% {
-    opacity: 0;
-    transform: scale(2.4);
-  }
-}
-
-.homelink {
-  display: inline-flex;
-  gap: 0.4em;
-  align-items: center;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text);
-  text-decoration: none;
-  border-radius: 999px;
-  filter: var(--lift);
-  white-space: nowrap;
-  transition: opacity 150ms ease;
-}
-
-.homelink:hover {
-  opacity: 0.75;
-}
-
-.homelink svg {
-  opacity: 0.6;
-}
-
-/* -- the middle: the photograph, and the station's name on it ------------- */
-
+/* Rendered at a real size so playback is never in question, then covered.
+   Nothing here may become display:none or 1x1. */
 .stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 0;
-  padding: 1rem 0;
-}
-
-/* The name is the only thing standing on the bare photograph, and a
-   photograph can be any brightness — this frame has sunlit stone right where
-   the text falls. A soft pool of shade under the middle keeps it legible
-   whatever gets swapped in, without flattening the picture everywhere else. */
-.stage::before {
-  content: '';
-  position: absolute;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  width: 356px;
+  height: 200px;
   pointer-events: none;
-  /* The ellipse fills its box, so the fade finishes exactly at the edges and
-     there is no rim. Sized smaller than this it reaches transparent partway
-     across and reads as a smudge on the photograph, which is very obvious on
-     a short screen. Kept inside the stage: this element is positioned, so
-     anything spilling out of it would paint over the deck below. */
-  inset: 0;
-  background: radial-gradient(
-    100% 78% at 50% 50%,
-    rgba(0, 0, 0, 0.72) 0%,
-    rgba(0, 0, 0, 0.62) 32%,
-    rgba(0, 0, 0, 0.38) 56%,
-    rgba(0, 0, 0, 0.15) 80%,
-    transparent 100%
-  );
 }
 
-.hero {
-  position: relative;
-  font-size: clamp(2.25rem, 8vw, 4.75rem);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.035em;
-  text-align: center;
-  text-wrap: balance;
-  filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.6));
-}
-
-.window__glass {
-  position: relative;
-  /* Width from the container, height from the ratio, with a hard floor so the
-     player clears YouTube's 200x200 minimum at any width. Stating the width
-     explicitly stops the ratio being solved backwards off the min-height. */
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  min-width: 200px;
-  min-height: 200px;
-  background: #000;
-}
-
-.window__glass > div,
-.window__glass iframe {
+.stage > div,
+.stage iframe {
   display: block;
   width: 100%;
   height: 100%;
   border: 0;
 }
 
-/* -- the deck ------------------------------------------------------------- */
+/* The scene --------------------------------------------------------------- */
 
-.deck {
-  width: 100%;
-  max-width: 44rem;
-  margin: 0 auto;
-  padding: 1rem 1.15rem 1.1rem;
-  border-radius: 22px;
-}
-
-.deck__head {
-  display: flex;
-  gap: 1.15rem;
-  align-items: stretch;
-}
-
-/* 356px wide is exactly 200px tall at 16:9 — the smallest the player is
-   allowed to be, which is the right size for a sleeve. */
-.deck__art {
-  flex: none;
-  width: 356px;
-  max-width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
-}
-
-.deck__body {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.deck__row {
-  display: flex;
-  gap: 0.9rem;
-  align-items: center;
-  min-width: 0;
-}
-
-.loop {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.now {
-  min-width: 0;
-}
-
-.now__title {
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.now__artist {
-  font-size: 0.8125rem;
-  color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.deck__toggle {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  color: #0a0a0a;
-  background: rgba(255, 255, 255, 0.92);
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: transform 150ms ease, background 150ms ease;
-}
-
-.deck__toggle:hover {
-  background: #fff;
-  transform: scale(1.06);
-}
-
-.deck__toggle:active {
-  transform: scale(0.94);
-}
-
-/* One button, two glyphs — swapped on state so the label can stay a real
-   accessible name rather than text nodes that would overwrite the icons. */
-.deck__toggle .icon-pause {
-  display: none;
-}
-
-.deck__toggle[aria-pressed='true'] .icon-play {
-  display: none;
-}
-
-.deck__toggle[aria-pressed='true'] .icon-pause {
-  display: block;
-}
-
-.deck__volume {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  width: 100%;
-  max-width: 11rem;
-}
-
-.deck__volume svg {
-  flex: none;
-  opacity: 0.6;
-}
-
-/* -- the loop: the whole broadcast, and where it has got to --------------- */
-
-.rail {
+.scene {
   position: relative;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.rail__fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--warm-a), var(--warm-b) 55%, var(--warm-c));
-  transition: width 1s linear;
-}
-
-/* Track boundaries, so the loop reads as a sequence rather than one long bar. */
-.rail__segment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-/* The fill is a span too, so :first-of-type would match that instead. The
-   segment right after it is the one sitting at the very start of the loop. */
-.rail__fill + .rail__segment {
-  border-left-color: transparent;
-}
-
-.rail__tick {
-  position: absolute;
-  top: 50%;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #fff;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.5);
-  transition: left 1s linear;
-}
-
-.loop__meta {
+  z-index: 1;
   display: flex;
-  gap: 1rem;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-top: 0.55rem;
-  font-size: 0.75rem;
-  color: var(--text-3);
-}
-
-.loop__time {
-  font-variant-numeric: tabular-nums;
-  flex: none;
-}
-
-.loop__caption {
+  flex-direction: column;
+  min-height: 100dvh;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(620px 420px at 88% -12%, var(--sage), transparent 70%),
+    radial-gradient(520px 360px at 6% 112%, var(--sage-soft), transparent 70%);
+}
+
+/* Bamboo: nodes are faked with inset shadows in the ground colour. */
+.bamboo {
+  position: absolute;
+  bottom: -12px;
+}
+
+.bamboo--tall {
+  right: 34px;
+  width: 9px;
+  height: 250px;
+  border-radius: 5px;
+  background: linear-gradient(rgba(107, 140, 98, 0.5), rgba(107, 140, 98, 0.35));
+  box-shadow:
+    inset 0 -60px 0 -58px rgba(233, 237, 227, 0.9),
+    inset 0 -130px 0 -128px rgba(233, 237, 227, 0.9);
+}
+
+.bamboo--short {
+  right: 58px;
+  width: 7px;
+  height: 180px;
+  border-radius: 4px;
+  background: linear-gradient(rgba(107, 140, 98, 0.38), rgba(107, 140, 98, 0.26));
+  box-shadow:
+    inset 0 -50px 0 -48px rgba(233, 237, 227, 0.9),
+    inset 0 -110px 0 -108px rgba(233, 237, 227, 0.9);
+}
+
+.leaf {
+  position: absolute;
+  border-radius: 0 100% 0 100%;
+}
+
+.leaf--a {
+  right: 18px;
+  bottom: 118px;
+  width: 26px;
+  height: 9px;
+  background: rgba(107, 140, 98, 0.45);
+  transform: rotate(-24deg);
+}
+
+.leaf--b {
+  right: 64px;
+  bottom: 150px;
+  width: 22px;
+  height: 8px;
+  background: rgba(107, 140, 98, 0.35);
+  transform: rotate(200deg);
+}
+
+/* Petals: the wrapper falls and rotates, the petal inside sways. */
+.petal {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+}
+
+.petal > span {
+  display: block;
+  border-radius: 0 100% 0 100%;
+}
+
+.petal--a {
+  left: 12%;
+  animation: bgb-fall 17s linear infinite 1s;
+}
+
+.petal--a > span {
+  width: 13px;
+  height: 13px;
+  background: rgba(224, 64, 122, 0.35);
+  animation: bgb-sway 5s ease-in-out infinite;
+}
+
+.petal--b {
+  left: 64%;
+  animation: bgb-fall 21s linear infinite 9s;
+}
+
+.petal--b > span {
+  width: 10px;
+  height: 10px;
+  background: rgba(224, 64, 122, 0.25);
+  animation: bgb-sway 6s ease-in-out infinite 2s;
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.topbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 20px 24px;
+}
+
+.brand {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.brand__name {
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.deck__note {
-  margin-top: 0.85rem;
-  padding-top: 0.8rem;
-  font-size: 0.75rem;
-  line-height: 1.6;
-  color: var(--text-3);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+/* The little panda in the corner, drawn from circles. */
+.logo {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 30px;
+}
+
+.logo__ear {
+  position: absolute;
+  top: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.logo__ear--l { left: -1px; }
+.logo__ear--r { right: -1px; }
+
+.logo__face {
+  position: absolute;
+  inset: 2px 1px 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.logo__eye {
+  position: absolute;
+  top: 12px;
+  width: 7px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.logo__eye--l { left: 7px; transform: rotate(-15deg); }
+.logo__eye--r { right: 7px; transform: rotate(15deg); }
+
+.logo__nose {
+  position: absolute;
+  left: 50%;
+  top: 20px;
+  width: 5px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink);
+  transform: translateX(-50%);
+}
+
+.flower {
+  position: absolute;
+  right: -7px;
+  top: -8px;
+  width: 17px;
+  height: 17px;
+}
+
+.flower__petal {
+  position: absolute;
+  width: 7px;
+  height: 9px;
+  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
+  background: var(--accent);
+}
+
+.flower__petal--a { left: 5px; top: 0; }
+.flower__petal--b { left: 0; top: 7px; transform: rotate(-115deg); }
+.flower__petal--c { left: 10px; top: 7px; transform: rotate(115deg); }
+
+.flower__heart {
+  position: absolute;
+  left: 6.5px;
+  top: 6.5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--flower);
+}
+
+.onair {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 14px 6px 11px;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(26, 31, 24, 0.9);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.onair__dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.onair__dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: bgb-ping 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.homelink {
+  justify-self: end;
+  color: var(--ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 150ms ease;
+}
+
+.homelink:hover {
+  color: var(--ink);
+}
+
+/* Hero -------------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 0 24px;
+}
+
+.hero__mark {
+  position: relative;
+}
+
+/* A window the panda rises into, so it reads as hiding behind the name. */
+.peekwindow {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  display: block;
+  width: 170px;
+  height: 60px;
+  overflow: hidden;
+  transform: translateX(-50%) translateY(-100%);
+}
+
+.panda {
+  position: absolute;
+  left: calc(50% - 75px);
+  bottom: 0;
+  width: 150px;
+  height: 60px;
+  animation: bgb-peek 7s ease-in-out infinite;
+}
+
+.panda__ear {
+  position: absolute;
+  top: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.panda__ear--l { left: 14px; }
+.panda__ear--r { right: 14px; }
+
+.panda__face {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 3px var(--ink);
+  transform: translateX(-50%);
+}
+
+.panda__eye {
+  position: absolute;
+  top: 36px;
+  width: 17px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.panda__eye--l { left: 41px; transform: rotate(-14deg); animation: bgb-blink 5s infinite 1s; }
+.panda__eye--r { right: 41px; transform: rotate(14deg); animation: bgb-blink 5s infinite 1.05s; }
+
+.panda__pupil {
+  position: absolute;
+  top: 43px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.panda__pupil--l { left: 47px; }
+.panda__pupil--r { right: 47px; }
+
+.panda__paw {
+  position: absolute;
+  bottom: -6px;
+  width: 22px;
+  height: 16px;
+  border-radius: 50% 50% 0 0;
+  background: var(--ink);
+}
+
+.panda__paw--l { left: 2px; }
+.panda__paw--r { right: 2px; }
+
+.hero__title {
+  position: relative;
+  font-family: var(--display);
+  font-size: clamp(2.25rem, 8vw, 66px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+/* No max-width: it sits on one line at desktop widths, as drawn, and only
+   wraps once the viewport genuinely cannot hold it. */
+.hero__sub {
+  font-size: 14px;
+  color: var(--ink-2);
+  text-align: center;
+  text-wrap: balance;
 }
 
 .notice {
-  margin-top: 0.85rem;
-  padding: 0.6rem 0.8rem;
-  font-size: 0.8125rem;
-  border-radius: 12px;
-  background: rgba(224, 64, 122, 0.16);
+  margin-top: 14px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink);
+  background: rgba(224, 64, 122, 0.12);
   border: 1px solid rgba(224, 64, 122, 0.4);
+  border-radius: 999px;
+  text-align: center;
 }
 
 .notice[hidden] {
   display: none;
 }
 
-/* -- one control, styled by hand -------------------------------------------- */
+/* The pill player --------------------------------------------------------- */
+
+.pill {
+  position: relative;
+  align-self: center;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  width: calc(100% - 48px);
+  max-width: 660px;
+  margin: 0 24px 26px;
+  padding: 11px 20px 11px 11px;
+  color: #fff;
+  background: var(--pill);
+  border-radius: 999px;
+  box-shadow: 0 14px 44px rgba(26, 31, 24, 0.3);
+}
+
+.disc {
+  position: relative;
+  flex: none;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: repeating-radial-gradient(circle at 50% 50%, #2a2f27 0 2px, #1f241d 2px 4px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+  animation: bgb-spin 7s linear infinite;
+  animation-play-state: paused;
+}
+
+/* Only turns while the station is actually in your ears. */
+.is-playing .disc {
+  animation-play-state: running;
+}
+
+.disc__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.disc__art:not([src]),
+.disc__art[src=''] {
+  opacity: 0;
+}
+
+.disc__spindle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+  transform: translate(-50%, -50%);
+}
+
+.pill__mid {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.now {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.now__title {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now__artist {
+  font-size: 12px;
+  color: var(--on-dark-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Where the whole loop has got to. Display only — a broadcast has nothing to
+   seek to, so this is not a control. */
+.bar {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.bar__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 999px;
+  background: #fff;
+  transition: width 1s linear;
+}
+
+.bar__thumb {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  transform: translate(-50%, -50%);
+  transition: left 1s linear;
+}
+
+.clock {
+  font-size: 11px;
+  color: var(--on-dark-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill__controls {
+  display: flex;
+  flex: none;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Volume stays out of the way until wanted, then slides open. */
+.vol {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--on-dark-3);
+  cursor: pointer;
+}
+
+.vol__icon {
+  flex: none;
+}
+
+.vol input[type='range'] {
+  width: 0;
+  opacity: 0;
+  transition: width 200ms ease, opacity 200ms ease;
+}
+
+.vol:hover input[type='range'],
+.vol:focus-within input[type='range'] {
+  width: 68px;
+  opacity: 1;
+}
+
+.play {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  color: var(--ink);
+  background: #fff;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+
+.play:hover { transform: scale(1.06); }
+.play:active { transform: scale(0.94); }
+
+.play .icon-pause { display: none; }
+.play[aria-pressed='true'] .icon-play { display: none; }
+.play[aria-pressed='true'] .icon-pause { display: block; }
 
 input[type='range'] {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 18px;
+  height: 14px;
   margin: 0;
   background: transparent;
   cursor: pointer;
@@ -610,65 +711,120 @@ input[type='range']::-moz-range-track {
 }
 
 input[type='range']::-webkit-slider-thumb {
-  width: 12px;
-  height: 12px;
-  margin-top: -4.5px;
+  width: 11px;
+  height: 11px;
+  margin-top: -4px;
   border: 0;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   -webkit-appearance: none;
   appearance: none;
 }
 
 input[type='range']::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   border: 0;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* -- narrow --------------------------------------------------------------- */
+/* Keyframes --------------------------------------------------------------- */
 
-/* Below the width where a 356px sleeve and a column of text can sit side by
-   side, the bar stacks and the artwork spans it. */
-@media (max-width: 44rem) {
-  .deck__head {
-    flex-direction: column;
+@keyframes bgb-ping {
+  75%, 100% { opacity: 0; transform: scale(2.4); }
+}
+
+@keyframes bgb-fall {
+  0%   { transform: translateY(-40px) rotate(0deg); opacity: 0; }
+  8%   { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(660px) rotate(320deg); opacity: 0; }
+}
+
+@keyframes bgb-sway {
+  0%, 100% { margin-left: 0; }
+  50%      { margin-left: 34px; }
+}
+
+@keyframes bgb-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes bgb-peek {
+  0%, 18%   { transform: translateY(100%); }
+  30%, 70%  { transform: translateY(12%); }
+  55%       { transform: translateY(8%); }
+  82%, 100% { transform: translateY(100%); }
+}
+
+@keyframes bgb-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.1); }
+}
+
+/* Narrow ------------------------------------------------------------------ */
+
+@media (max-width: 40rem) {
+  .topbar {
+    padding: 16px;
   }
 
-  .deck__art {
-    width: 100%;
+  .brand__name,
+  .homelink {
+    font-size: 12px;
+  }
+
+  .pill {
+    width: calc(100% - 32px);
+    gap: 12px;
+    margin: 0 16px 18px;
+    padding: 10px 14px 10px 10px;
+  }
+
+  .disc {
+    width: 52px;
+    height: 52px;
+  }
+
+  /* The slider would crowd the pill on a phone; the icon still shows state. */
+  .vol {
+    display: none;
   }
 }
 
-@media (max-width: 34rem) {
-  .homelink span {
+@media (max-width: 26rem) {
+  .brand__name {
+    display: none;
+  }
+}
+
+/* Stillness --------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .panda,
+  .panda__eye,
+  .petal,
+  .petal > span,
+  .disc,
+  .onair__dot::after {
+    animation: none !important;
+  }
+
+  /* Without its animation the panda would sit at translateY(0) and hang over
+     the name, so park it where the loop starts: out of sight. */
+  .panda {
+    transform: translateY(100%);
+  }
+
+  .petal {
     display: none;
   }
 
-  .homelink {
-    padding: 0.35rem 0.55rem;
-  }
-
-  .deck__volume {
-    width: 4.5rem;
-  }
-}
-
-/* The "On air" label always stays. It is the whole status, it fits at 320px,
-   and a lone dot in a pill says nothing. */
-
-/* -- stillness ------------------------------------------------------------ */
-
-@media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

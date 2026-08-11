@@ -34,6 +34,7 @@ const state = {
   unavailable: new Set(),
   live: false, // is the listener tuned in (not paused)
   userPaused: false, // they chose silence, as opposed to the browser imposing it
+  starting: false, // a player is being created right now
   loading: false, // a load is in flight; pause events from it are not the user
   settled: false, // has this load been drift-corrected once
   volume: DEFAULT_VOLUME,
@@ -217,7 +218,6 @@ function goOnAir() {
   if (state.live) return;
   state.userPaused = false;
   state.live = true;
-  setSignal('live');
   tuneToLive(); // rejoin wherever the station has got to, not where you left
   state.player.play();
   updateToggle();
@@ -228,7 +228,6 @@ function goOffAir() {
   state.live = false;
   clearTimeout(boundaryTimer);
   state.player.pause();
-  setSignal('off');
   updateToggle();
 }
 
@@ -257,7 +256,6 @@ function goDark(message) {
   state.live = false;
   clearTimeout(boundaryTimer);
   clearInterval(driftTimer);
-  setSignal('off');
   setNotice(message);
   updateToggle();
 }
@@ -290,8 +288,7 @@ function handleStateChange(playerState) {
     if (!state.live) {
       // Started from inside the iframe rather than our button.
       state.live = true;
-      setSignal('live');
-      updateToggle();
+          updateToggle();
     }
     setMediaSessionState('playing');
   } else if (playerState === STATE.PAUSED) {
@@ -331,70 +328,62 @@ function paint() {
 
   setText(el.title, track.title);
   setText(el.artist, track.artist);
-
-  const elapsed = showing === pos.index ? pos.offset : state.player?.currentTime() ?? 0;
-  setText(el.elapsed, formatClock(elapsed));
-  setText(el.total, formatClock(track.duration));
+  setCover(track);
 
   paintRail(pos);
 }
 
-function paintRail(pos) {
-  const fraction = loopOffsetAt(state.schedule, now()) / state.schedule.total;
-  const percent = `${(fraction * 100).toFixed(4)}%`;
-  el.tick.style.left = percent;
-  el.fill.style.width = percent;
+/** The sleeve on the disc. Only touched on a change, so it never re-fetches. */
+function setCover(track) {
+  const src = `assets/covers/${track.id}.jpg`;
+  if (el.cover.getAttribute('src') === src) return;
+  el.cover.setAttribute('src', src);
+  el.cover.alt = `${track.title} — ${track.artist}`;
+}
 
-  for (const [i, seg] of el.segments.entries()) {
-    seg.classList.toggle('is-current', i === pos.index);
-  }
+/**
+ * The bar is the whole loop, not the current track: it is the position of the
+ * broadcast. Display only — there is nothing to seek to.
+ */
+function paintRail(pos) {
+  const offset = loopOffsetAt(state.schedule, now());
+  const percent = `${((offset / state.schedule.total) * 100).toFixed(4)}%`;
+  el.fill.style.width = percent;
+  el.thumb.style.left = percent;
+
+  setText(el.elapsed, formatClock(offset));
+  setText(el.total, formatClock(state.schedule.total));
+
   el.rail.setAttribute(
     'aria-label',
     `The loop runs ${formatClock(state.schedule.total)}. ` +
-      `The station is ${formatClock(loopOffsetAt(state.schedule, now()))} into it, ` +
-      `on ${pos.track.title}.`,
+      `The station is ${formatClock(offset)} into it, on ${pos.track.title}.`,
   );
 }
 
 function buildRail() {
   el.rail.replaceChildren();
 
-  // Painted first so the track boundaries and the marker sit over it.
   el.fill = document.createElement('span');
-  el.fill.className = 'rail__fill';
+  el.fill.className = 'bar__fill';
   el.rail.append(el.fill);
 
-  el.segments = state.schedule.tracks.map((track, i) => {
-    const seg = document.createElement('span');
-    seg.className = 'rail__segment';
-    seg.style.left = `${(state.schedule.starts[i] / state.schedule.total) * 100}%`;
-    seg.style.width = `${(track.duration / state.schedule.total) * 100}%`;
-    seg.title = `${track.title} — ${track.artist}`;
-    el.rail.append(seg);
-    return seg;
-  });
-
-  el.tick = document.createElement('span');
-  el.tick.className = 'rail__tick';
-  el.rail.append(el.tick);
-
-  setText(
-    el.railCaption,
-    `${state.schedule.tracks.length} tracks · ${formatClock(state.schedule.total)} loop`,
-  );
+  el.thumb = document.createElement('span');
+  el.thumb.className = 'bar__thumb';
+  el.rail.append(el.thumb);
 }
 
-function setSignal(mode) {
-  el.signal.dataset.state = mode;
-  setText(el.signalText, mode === 'live' ? 'On air' : 'Off air');
-  el.station.classList.toggle('is-off-air', mode !== 'live');
-}
-
+/**
+ * The "On air" badge is about the station, which is always broadcasting, so it
+ * never changes. This is only about whether the listener has it in their ears:
+ * the glyph on the button, and whether the record turns.
+ */
 function updateToggle() {
   // The button holds two SVG glyphs and CSS picks one off aria-pressed, so the
   // label is set as an accessible name rather than as text that would wipe them.
   el.toggle.setAttribute('aria-pressed', String(state.live));
   el.toggle.setAttribute('aria-label', state.live ? 'Pause' : 'Play');
+  document.body.classList.toggle('is-playing', state.live);
 }
 
 function setNotice(message) {
@@ -473,13 +462,16 @@ function applyVolume(value) {
 
 /* ---------------------------------------------------------------- entry -- */
 
-async function enterStation() {
-  el.tuneIn.disabled = true;
-  setText(el.tuneIn, 'Tuning in');
-
-  el.gate.hidden = true;
-  el.station.removeAttribute('inert');
-  document.body.classList.remove('is-closed');
+/**
+ * There is no front door any more — the page is one screen and shows what is
+ * on air from the moment it loads. But a browser will not start audio without
+ * a gesture, so the first press of play is where the player gets built. It
+ * also means anyone who never presses play never loads YouTube at all.
+ */
+async function startListening() {
+  if (state.starting) return;
+  state.starting = true;
+  el.toggle.disabled = true;
 
   try {
     state.player = await createPlayer({
@@ -490,29 +482,25 @@ async function enterStation() {
   } catch (err) {
     goDark(err.message);
     return;
+  } finally {
+    state.starting = false;
+    el.toggle.disabled = false;
   }
 
   applyVolume(state.volume);
   wireMediaSession();
 
   state.live = true;
-  setSignal('live');
+  state.userPaused = false;
   updateToggle();
   tuneToLive();
 
   driftTimer = setInterval(checkDrift, DRIFT_INTERVAL_MS);
-  el.toggle.focus();
 }
 
 async function start() {
-  const ids = [
-    'gate', 'tuneIn', 'gateNow', 'station', 'signal', 'signalText',
-    'title', 'artist', 'elapsed', 'total', 'rail', 'railCaption',
-    'notice', 'toggle', 'volume',
-  ];
-  for (const id of ids) {
-    el[id] = document.getElementById(id.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`));
-  }
+  const ids = ['title', 'artist', 'cover', 'elapsed', 'total', 'rail', 'notice', 'toggle', 'volume'];
+  for (const id of ids) el[id] = document.getElementById(id);
 
   state.volume = readStoredVolume();
   el.volume.value = String(state.volume);
@@ -524,25 +512,24 @@ async function start() {
     }),
     measureSkew(),
   ]).catch((err) => {
-    setText(el.gateNow, `The playlist would not load — ${err.message}`);
+    setNotice(`The playlist would not load — ${err.message}`);
     throw err;
   });
 
   state.schedule = makeSchedule(data);
   buildRail();
+  updateToggle();
 
-  // Show what is on air before anyone commits to pressing anything.
-  const preview = () => {
-    const pos = positionAt(state.schedule, now());
-    setText(el.gateNow, `On air now — ${pos.track.title}, ${pos.track.artist}`);
-    if (!el.station.hasAttribute('inert')) paint();
-  };
-  preview();
-  tickTimer = setInterval(preview, TICK_MS);
+  // The page is complete from the first paint: what is on air, how far into
+  // the loop, and the sleeve — all of it from the schedule, none of it needing
+  // a player to exist.
+  paint();
+  tickTimer = setInterval(paint, TICK_MS);
 
-  el.tuneIn.disabled = false;
-  el.tuneIn.addEventListener('click', enterStation);
-  el.toggle.addEventListener('click', () => (state.live ? pauseByListener() : resumeByListener()));
+  el.toggle.addEventListener('click', () => {
+    if (!state.player) return void startListening();
+    return state.live ? pauseByListener() : resumeByListener();
+  });
   el.volume.addEventListener('input', (e) => applyVolume(Number(e.target.value)));
 
   // A tab that was backgrounded for an hour must rejoin the broadcast, not
@@ -560,16 +547,17 @@ async function start() {
     setTimeout(rejoinAfterReturn, 1500);
     setTimeout(rejoinAfterReturn, 4000);
 
-    preview();
+    paint();
   });
 }
 
 start().catch((err) => {
   console.error('[begambeli]', err);
-  const gate = document.getElementById('gate-now');
-  if (gate && !gate.textContent.trim()) {
-    gate.textContent = 'The station could not start. Reload to try again.';
+  const notice = document.getElementById('notice');
+  if (notice && !notice.textContent.trim()) {
+    notice.textContent = 'The station could not start. Reload to try again.';
+    notice.hidden = false;
   }
-  const button = document.getElementById('tune-in');
+  const button = document.getElementById('toggle');
   if (button) button.disabled = true;
 });

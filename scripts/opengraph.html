@@ -2,70 +2,94 @@
 <html><head><meta charset="utf-8">
 <link rel="stylesheet" href="../assets/css/station.css">
 <style>
-  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden;background:var(--ink)}
-  .og{position:relative;width:1200px;height:630px;overflow:hidden;
-      display:flex;flex-direction:column;justify-content:space-between;padding:44px 56px 48px}
-  .og__bg{position:absolute;inset:0;background:var(--ink) url(../assets/bg.jpg) center/cover no-repeat}
-  .og__bg::after{content:'';position:absolute;inset:0;
-      background:linear-gradient(to bottom,rgba(0,0,0,.45),rgba(0,0,0,.12) 38%,rgba(0,0,0,.62)),rgba(0,0,0,.18)}
-  .og__top{position:relative;display:flex;align-items:center;justify-content:space-between}
-  .og__mark{font-size:22px;font-weight:600;letter-spacing:-.01em;filter:var(--lift)}
-  .og__pill{display:inline-flex;align-items:center;gap:9px;padding:8px 18px 8px 14px;
-      font-size:18px;font-weight:500;border-radius:999px;filter:var(--lift)}
-  .og__dot{width:12px;height:12px;border-radius:50%;background:var(--live);
-      box-shadow:0 0 14px rgba(224,64,122,.95)}
-  .og__mid{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center}
-  .og__title{font-size:92px;font-weight:600;line-height:1;letter-spacing:-.035em;
-      filter:drop-shadow(0 6px 30px rgba(0,0,0,.6))}
-  .og__lede{margin-top:20px;max-width:30ch;font-size:25px;line-height:1.4;color:var(--text-2);filter:var(--lift)}
-  .og__deck{position:relative;padding:22px 26px;border-radius:24px}
-  .og__row{display:flex;align-items:center;justify-content:space-between;gap:24px}
-  .og__now{min-width:0}
-  .og__track{font-size:27px;font-weight:600;letter-spacing:-.01em}
-  .og__artist{font-size:18px;color:var(--text-2);margin-top:2px}
-  .og__play{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.92);
-      display:grid;place-items:center;flex:none}
-  .og__rail{position:relative;height:8px;border-radius:999px;background:rgba(255,255,255,.16);margin-top:22px}
-  .og__fill{position:absolute;inset:0 auto 0 0;width:48.4%;border-radius:999px;
-      background:linear-gradient(90deg,var(--warm-a),var(--warm-b) 55%,var(--warm-c))}
-  .og__seg{position:absolute;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.3)}
-  .og__tick{position:absolute;top:50%;left:48.4%;width:16px;height:16px;border-radius:50%;background:#fff;
-      transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(0,0,0,.22),0 2px 10px rgba(0,0,0,.5)}
-  .og__meta{display:flex;justify-content:space-between;margin-top:12px;font-size:17px;color:var(--text-3)}
+  /* Imports the site's own stylesheet so this cannot drift from the real page.
+     Only the frame size and the animation freezing are set here. */
+  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden;background:var(--bg)}
+  .og{position:relative;width:1200px;height:630px;overflow:hidden;display:flex;flex-direction:column;
+      background:var(--bg)}
+  /* Hold every loop at a flattering frame. */
+  .panda{animation:none;transform:translateY(10%)}
+  .onair__dot::after{animation:none;opacity:.35;transform:scale(1.8)}
+  .disc{animation:none}
+  .og .topbar{padding:26px 34px;font-size:15px}
+  .og .brand__name{font-size:15px}
+  .og .homelink{font-size:15px}
+  .og .onair{font-size:15px;padding:7px 16px 7px 13px}
+  .og .hero{gap:10px}
+  .og .hero__title{font-size:78px}
+  .og .hero__sub{font-size:17px}
+  .og .pill{margin:0 34px 34px;max-width:700px;padding:13px 24px 13px 13px}
+  .og .now__title{font-size:17px}
+  .og .now__artist{font-size:13px}
+  .og .clock{font-size:12px}
+  .og .bar__fill{width:24%}
+  .og .bar__thumb{left:24%}
+  .og .disc__art{background:repeating-radial-gradient(circle at 50% 50%, #2a2f27 0 2px, #1f241d 2px 4px)}
 </style></head>
 <body>
 <div class="og">
-  <div class="og__bg"></div>
+  <div class="wash"></div>
+  <span class="bamboo bamboo--tall"></span>
+  <span class="bamboo bamboo--short"></span>
+  <span class="leaf leaf--a"></span>
+  <span class="leaf leaf--b"></span>
+  <span class="petal petal--a" style="animation:none;top:120px;left:14%"><span style="animation:none"></span></span>
+  <span class="petal petal--b" style="animation:none;top:210px;left:66%"><span style="animation:none"></span></span>
 
-  <div class="og__top">
-    <div class="og__mark">Begambeli Radio</div>
-    <div class="og__pill glass"><span class="og__dot"></span><span>On air</span></div>
-  </div>
+  <header class="topbar">
+    <span class="brand">
+      <span class="logo">
+        <span class="logo__ear logo__ear--l"></span><span class="logo__ear logo__ear--r"></span>
+        <span class="logo__face"></span>
+        <span class="logo__eye logo__eye--l"></span><span class="logo__eye logo__eye--r"></span>
+        <span class="logo__nose"></span>
+        <span class="flower">
+          <span class="flower__petal flower__petal--a"></span>
+          <span class="flower__petal flower__petal--b"></span>
+          <span class="flower__petal flower__petal--c"></span>
+          <span class="flower__heart"></span>
+        </span>
+      </span>
+      <span class="brand__name">Begambeli Radio</span>
+    </span>
+    <span class="onair"><span class="onair__dot"></span>On air</span>
+    <span class="homelink">begambeli.com →</span>
+  </header>
 
-  <div class="og__mid">
-    <div class="og__title">Begambeli Radio</div>
-    <div class="og__lede">One signal, one schedule. Everyone hears the same second of the same song.</div>
-  </div>
-
-  <div class="og__deck glass">
-    <div class="og__row">
-      <div class="og__now">
-        <div class="og__track">Arbajo</div>
-        <div class="og__artist">Kutumba</div>
-      </div>
-      <div class="og__play">
-        <svg width="23" height="23" viewBox="0 0 24 24" fill="#0a0a0a"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
-      </div>
+  <main class="hero">
+    <div class="hero__mark">
+      <span class="peekwindow">
+        <span class="panda">
+          <span class="panda__ear panda__ear--l"></span><span class="panda__ear panda__ear--r"></span>
+          <span class="panda__face"></span>
+          <span class="panda__eye panda__eye--l"></span><span class="panda__eye panda__eye--r"></span>
+          <span class="panda__pupil panda__pupil--l"></span><span class="panda__pupil panda__pupil--r"></span>
+          <span class="panda__paw panda__paw--l"></span><span class="panda__paw panda__paw--r"></span>
+        </span>
+      </span>
+      <h1 class="hero__title">Begambeli Radio</h1>
     </div>
-    <div class="og__rail">
-      <div class="og__fill"></div>
-      <span class="og__seg" style="left:9.25%"></span><span class="og__seg" style="left:20.07%"></span>
-      <span class="og__seg" style="left:28.43%"></span><span class="og__seg" style="left:40.67%"></span>
-      <span class="og__seg" style="left:56.42%"></span><span class="og__seg" style="left:66.44%"></span>
-      <span class="og__seg" style="left:76.09%"></span><span class="og__seg" style="left:88.37%"></span>
-      <span class="og__tick"></span>
+    <p class="hero__sub">One signal on a fixed schedule. Everyone here is hearing this same second.</p>
+  </main>
+
+  <footer class="pill">
+    <span class="disc">
+      <span class="disc__art" style="display:block;width:100%;height:100%;border-radius:50%"></span>
+      <span class="disc__spindle"></span>
+    </span>
+    <div class="pill__mid">
+      <div class="now">
+        <span class="now__title">Yo Samjhine Mann Chha</span>
+        <span class="now__artist">Narayan Gopal</span>
+      </div>
+      <div class="bar"><span class="bar__fill"></span><span class="bar__thumb"></span></div>
+      <span class="clock">9:54 / 41:16</span>
     </div>
-    <div class="og__meta"><span>9 tracks · 41:16 loop</span><span>5:34 / 6:30</span></div>
-  </div>
+    <div class="pill__controls">
+      <span class="play">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+      </span>
+    </div>
+  </footer>
 </div>
 </body></html>

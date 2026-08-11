@@ -487,8 +487,10 @@ function setTheme(value) {
 }
 
 function paintThemeToggle() {
-  const next = activeTheme() === 'dark' ? 'light' : 'dark';
-  el.theme.setAttribute('aria-label', `Switch to ${next}`);
+  const dark = activeTheme() === 'dark';
+  // A switch, not a button: its label names the setting and aria-checked says
+  // whether it is on, rather than the label changing to name the next state.
+  el.theme.setAttribute('aria-checked', String(dark));
 
   // Keep the browser chrome in step. The two <meta media=...> tags cover the
   // system setting; an explicit choice has to be applied by hand.

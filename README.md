@@ -119,76 +119,65 @@ plays the next one that works, and rejoins the schedule at the following boundar
 
 ## Design
 
-"Peek-a-boo Panda", recreated from a design handoff. Warm sage ground `#e9ede3`, ink
-`#1a1f18`, a monochrome panda that rises from behind the station's name every seven seconds
-and ducks back down, bamboo in the corner, two bougainvillea petals drifting past, and a dark
-pill player docked at the bottom. Bougainvillea magenta `#e0407a` is the only accent — the
-on-air dot, the position marker, the flower at the panda's ear, and the focus ring.
+"Peek-a-boo Panda", shan-shui, recreated from `design_handoff_panda_radio` v2. A Chinese
+landscape sits behind the station: layered karst peaks at both corners, drifting clouds,
+ground mist, bamboo, and two bougainvillea petals falling past. A panda rises from behind
+the station's name every seven seconds and ducks back down.
 
-Panda, flower, petals and bamboo are all CSS shapes; there are no image assets beyond the
-track covers. Fredoka 600 is self-hosted in `assets/fonts/` for the display face, and
-everything else is `system-ui`; nothing loads from a third-party CDN at runtime.
+Two modes, and they are properly two scenes rather than one scene recoloured:
+
+| | light | dark |
+| --- | --- | --- |
+| sky | `linear-gradient(#e2e9da, #e9ede3 60%)` | `linear-gradient(#0d120c, #121710 60%)` |
+| overhead | 64px sun with a warm glow | 58px moon with craters, plus five twinkling stars |
+| peaks | sage fills | fainter fills **with a moonlit rim** on the side facing the moon |
+| petals | flat magenta | brighter, and glowing |
+| corner logo | ink on a white face | **negative** — light ink on a dark face |
+| player pill | a dark object, white text | **inverts** — a light object, dark text, dark play button |
+
+Everything is a CSS shape; there are no image assets beyond the track covers. Fredoka 600 is
+self-hosted for the display face, `system-ui` elsewhere, nothing from a third-party CDN.
 
 The mockups live in `data/design/`, which is gitignored and never deployed.
 
-### Light and dark
+### How the theme is chosen
 
-The handoff has no dark variant, so the night version is a design call: the same bamboo
-grove after dark rather than a different site. Deep forest ground `#171d15` instead of
-neutral black, the sage washes become a fainter glow, bamboo lifts to a paler green, and the
-pill becomes a *raised* surface (`#262e22`, lighter than the ground) rather than the dark
-object it is by day.
-
-The theme is chosen in three CSS blocks, so that an explicit choice beats the system setting
-in both directions:
+Entirely client-side — there is no server and no database. Three CSS blocks, so an explicit
+choice beats the system setting in both directions:
 
 ```css
-:root                              /* light, the base            */
+:root                              /* light, the base                  */
 @media (prefers-color-scheme: dark)
-  :root:not([data-theme='light'])  /* dark, unless light was asked for */
-:root[data-theme='dark']           /* dark, whatever the system says   */
+  :root:not([data-theme='light'])  /* dark, unless light was asked for  */
+:root[data-theme='dark']           /* dark, whatever the system says    */
 ```
 
-The dark palette is written once as `--dark-*` and referenced by both dark selectors, so the
-two cannot drift apart. With nothing stored, `data-theme` is never set at all and the media
-query stays in charge — someone who has not touched the button keeps following their system
-if it changes later.
+The dark palette is written once as `--d-*` and referenced from both dark selectors, so the
+two cannot drift apart. The choice is a single string in `localStorage`; with nothing stored,
+`data-theme` is never set at all and the media query stays in charge, so someone who has
+never touched the switch keeps following their system if it changes later.
 
 **The inline script in `<head>` is load-bearing.** It applies a stored preference before the
 stylesheet, because `main.js` is a module and therefore deferred; applying it from there
-would repaint after the first frame and flash the wrong theme on every load. Verified: with
-the system set light and dark stored, the first animation frame is already dark.
+would repaint after the first frame and flash the wrong theme on every load.
 
-**Why `--panda-ink` is separate from `--ink`.** `--ink` was doing two jobs — text colour and
-the panda's black. Flipping it for dark would give you a light-eared panda, which is not a
-panda. The animal now has its own tokens and stays black and white in both themes. A third,
-`--panda-silhouette`, covers the parts that sit against the ground rather than the white
-face: black on near-black has no contrast at all (1.07:1), so at night the ears and paws lift
-a fraction above the ground and take a 1px rim of moonlight, which measures 3.9:1 against the
-ground and is what actually keeps the silhouette.
+### Traps in here
 
-One more trap worth knowing: the gaps between bamboo segments are drawn with inset shadows in
-the *background colour*. That is what `--node` is for. Hardcode it and dark mode paints pale
-bars across the stalks.
+**The pill inverts, so nothing inside it can be a literal.** Title, artist, timecode, track,
+fill, thumb ring, play button, disc ring and spindle are all tokens, because every one of
+them swaps ends between modes.
 
-### Two departures from the handoff, on purpose
+**The bamboo nodes are painted in the sky colour.** Those inset shadows fake the gaps between
+segments, so `--node` has to track the sky — hardcode it and dark mode draws pale bars across
+the stalks.
 
-**Muted ink is darker.** The prototype specifies `rgba(26,31,24,0.55)` for the subline and
-`0.6` for the header link. On this ground those measure about 3.6:1 and 4.3:1, under the
-4.5:1 body text needs. Both are `0.66` here, the smallest change that clears it — measured by
-differencing a text-visible against a text-hidden screenshot, so the numbers come from real
-glyph coverage rather than from an element box. They now read 5.03:1 and 4.95:1.
-
-**Prev and next are gone.** They were drawn in the mockup, but there is nothing to skip to —
-the brief ruled them out and non-functional controls would be worse than none.
-
-Volume was not in the mockup either, but with the player hidden there is no fallback, so a
-speaker glyph sits in the pill and slides open on hover or focus.
-
-### The progress bar
-
-It is the position of the whole loop, not of the current track, which is why it reads
-`9:54 / 41:16`. Display only — a broadcast has nothing to seek to, so it is not a control.
+**Muted text needed raising in both modes, and for opposite reasons.** The references specify
+0.55–0.6 alpha. On the light ground that measures ~3.6:1; in the *dark* pill — which is a
+light surface — the timecode measures ~3.2:1. Both are raised until they clear 4.5:1 by
+measurement, not by eye: two screenshots, one with the text visible and one with it hidden,
+differenced to find the pixels the glyphs actually paint, then the glyph colour compared
+against the lightest background any glyph sits on. Tightest is 5.00:1 in light, 5.18:1 in
+dark.
 
 ### The player is hidden
 
@@ -198,13 +187,14 @@ put one, and hiding it was chosen deliberately with that trade-off understood.
 
 How it is hidden matters. `display:none`, `visibility:hidden` and 1×1 sizing all risk a
 browser refusing to start the embed or throttling it silently. Instead `.stage` renders the
-player at a real 356×200 and the page's own opaque ground is painted over it at a higher
+player at a real 356×200 and the page's own opaque sky is painted over it at a higher
 stacking level, so the iframe is fully laid out and playing but never seen. **Do not "tidy"
 this into `display:none`** — audio stops being reliable, and it will not fail consistently
 enough to be obvious.
 
 `opengraph.png` is rendered from `scripts/opengraph.html`, which imports the site's own
-stylesheet so it cannot drift from the real thing:
+stylesheet so it cannot drift from the real thing, and is pinned to `data-theme="light"` so
+link previews are always the daylight scene:
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \

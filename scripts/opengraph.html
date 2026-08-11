@@ -4,9 +4,9 @@
 <style>
   /* Imports the site's own stylesheet so this cannot drift from the real page.
      Only the frame size and the animation freezing are set here. */
-  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden;background:var(--bg)}
+  html,body{margin:0;padding:0;width:1200px;height:630px;overflow:hidden;background:var(--sky)}
   .og{position:relative;width:1200px;height:630px;overflow:hidden;display:flex;flex-direction:column;
-      background:var(--bg)}
+      background:var(--sky)}
   /* Hold every loop at a flattering frame. */
   .panda{animation:none;transform:translateY(10%)}
   .onair__dot::after{animation:none;opacity:.35;transform:scale(1.8)}
@@ -14,6 +14,8 @@
   .og .topbar{padding:26px 34px;font-size:15px}
   .og .brand__name{font-size:15px}
   .og .homelink{font-size:15px}
+  .og .switch{width:46px;padding:4px}
+  .og .switch__knob{width:18px;height:18px;font-size:10px}
   .og .onair{font-size:15px;padding:7px 16px 7px 13px}
   .og .hero{gap:10px}
   .og .hero__title{font-size:78px}
@@ -28,13 +30,20 @@
 </style></head>
 <body>
 <div class="og">
-  <div class="wash"></div>
-  <span class="bamboo bamboo--tall"></span>
-  <span class="bamboo bamboo--short"></span>
-  <span class="leaf leaf--a"></span>
-  <span class="leaf leaf--b"></span>
-  <span class="petal petal--a" style="animation:none;top:120px;left:14%"><span style="animation:none"></span></span>
-  <span class="petal petal--b" style="animation:none;top:210px;left:66%"><span style="animation:none"></span></span>
+  <div class="sky">
+    <span class="celestial"><span class="crater crater--a"></span><span class="crater crater--b"></span></span>
+    <span class="cloud cloud--a" style="animation:none"><span class="cloud__bar"><i></i><i></i></span></span>
+    <span class="cloud cloud--b" style="animation:none"><span class="cloud__bar"><i></i></span></span>
+    <span class="peak peak--l1"></span><span class="peak peak--l2"></span><span class="peak peak--l3"></span>
+    <span class="peak peak--r1"></span><span class="peak peak--r2"></span><span class="peak peak--r3"></span>
+    <div class="mist"></div>
+    <span class="bamboo bamboo--tall"></span>
+    <span class="bamboo bamboo--short"></span>
+    <span class="leaf leaf--a"></span>
+    <span class="leaf leaf--b"></span>
+    <span class="petal petal--a" style="animation:none;top:150px;left:42%"><span style="animation:none"></span></span>
+    <span class="petal petal--b" style="animation:none;top:210px;left:66%"><span style="animation:none"></span></span>
+  </div>
 
   <header class="topbar">
     <span class="brand">
@@ -53,7 +62,7 @@
       <span class="brand__name">Begambeli Radio</span>
     </span>
     <span class="onair"><span class="onair__dot"></span>On air</span>
-    <span class="homelink">begambeli.com →</span>
+    <span class="topbar__end"><span class="switch"><span class="switch__knob"></span></span><span class="homelink">begambeli.com →</span></span>
   </header>
 
   <main class="hero">

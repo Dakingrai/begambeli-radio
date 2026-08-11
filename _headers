@@ -7,11 +7,13 @@
 /assets/fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
+# Short, because these change every time the design does and a stale pair of
+# them is indistinguishable from a broken site.
 /assets/css/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=300
 
 /assets/js/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=300
 
 # Link scrapers cache whatever they are handed, so this one needs a policy of
 # its own rather than the platform default — an hour, so a redesign reaches

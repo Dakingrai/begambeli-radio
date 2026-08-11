@@ -131,16 +131,30 @@ that carries information.
 
 ### Swapping the background
 
-`assets/bg.jpg` is a generated placeholder — a dark plum-to-amber wash standing in for a
-photograph. **Replace the file with one of your own frames and nothing else needs to
-change.** 1920×1080 or larger, and prefer something dark and low-contrast; the scrim in
-`.backdrop::after` darkens by roughly 55% at the top and bottom where the text sits, which
-is enough for a dim frame but will fight a bright one. Contrast was measured, not eyeballed:
-the tightest pairing is the 55% white caption text at 6.3:1 against the current background.
+`assets/bg.jpg` is the photograph. Replace the file and nothing else needs to change.
 
-Everything in the bottom panel sits on frosted glass rather than directly on the image, so
-that copy stays legible whatever the photograph does. Only the masthead and the gate's
-heading sit on the bare image, and both carry a drop shadow.
+**Resize it first.** A full-resolution scan is 10–15MB, which is a miserable thing to put
+in front of someone on a phone and is the single heaviest asset on the site by two orders
+of magnitude. 2048px on the long edge at quality 55 lands around 400KB and is
+indistinguishable once the scrim is over it:
+
+```bash
+sips -Z 2048 --setProperty format jpeg --setProperty formatOptions 55 \
+  your-scan.jpg --out assets/bg.jpg
+```
+
+**Legibility is handled, within reason.** Everything in the bottom bar sits on frosted glass
+rather than on the image, so it stays readable whatever the photograph does. The one thing
+standing on the bare picture is the station's name, and `.stage::before` lays a soft pool of
+shade under the middle of the page for exactly that reason — a bright frame will otherwise
+put white text on sunlit stone.
+
+Contrast is measured rather than eyeballed, and measured properly: two screenshots, one
+with the text visible and one with it hidden, differenced to find the pixels the glyphs
+actually paint, then the glyph colour compared against the lightest background any glyph
+sits on. Against the current photograph the name reads 12.1:1 and the tightest pairing
+anywhere is the caption text at 6.1:1. Worth re-running if you swap in something much
+brighter.
 
 ### The loop rail
 

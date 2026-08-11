@@ -45,7 +45,7 @@
 <div class="station" id="station" inert>
 
   <header class="topbar">
-    <p class="wordmark">Begambeli Radio</p>
+    <span aria-hidden="true"></span>
 
     <p class="signal glass" id="signal" data-state="off">
       <span class="signal__dot" aria-hidden="true"></span>
@@ -61,33 +61,50 @@
     </a>
   </header>
 
-  <!-- The player has to stay visible, so it is the hero rather than something
-       tucked away: the artwork is simply the thing itself, moving. -->
+  <!-- The photograph is the page. This is the only thing standing on it. -->
   <main class="stage">
-    <div class="window">
-      <div class="window__glass">
-        <div id="player"></div>
-      </div>
-    </div>
+    <h1 class="hero">Begambeli Radio</h1>
   </main>
 
   <footer class="deck glass">
     <div class="deck__head">
-      <div class="now" aria-live="polite">
-        <h2 class="visually-hidden">On air</h2>
-        <p class="now__title" id="title">&nbsp;</p>
-        <p class="now__artist" id="artist">&nbsp;</p>
+
+      <!-- The player has to stay visible and over 200x200, so it is the
+           artwork panel of the bar — the sleeve, except it moves. -->
+      <div class="deck__art">
+        <div class="window__glass">
+          <div id="player"></div>
+        </div>
       </div>
 
-      <div class="deck__controls">
-        <button class="deck__toggle" id="toggle" type="button" aria-pressed="false" aria-label="Play">
-          <svg class="icon-play" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M8 5.5v13l11-6.5z"/>
-          </svg>
-          <svg class="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/>
-          </svg>
-        </button>
+      <div class="deck__body">
+        <!-- Title gets the full width of the column; a long one has nowhere
+             else to go once the sleeve has taken its share. -->
+        <div class="now" aria-live="polite">
+          <h2 class="visually-hidden">On air</h2>
+          <p class="now__title" id="title">&nbsp;</p>
+          <p class="now__artist" id="artist">&nbsp;</p>
+        </div>
+
+        <div class="deck__row">
+          <button class="deck__toggle" id="toggle" type="button" aria-pressed="false" aria-label="Play">
+            <svg class="icon-play" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5z"/>
+            </svg>
+            <svg class="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/>
+            </svg>
+          </button>
+
+          <section class="loop">
+            <h2 class="visually-hidden">The loop</h2>
+            <div class="rail" id="rail" role="img" aria-label="The broadcast loop."></div>
+            <p class="loop__meta">
+              <span class="loop__caption" id="rail-caption"></span>
+              <span class="loop__time"><span id="elapsed">0:00</span> / <span id="total">0:00</span></span>
+            </p>
+          </section>
+        </div>
 
         <label class="deck__volume">
           <span class="visually-hidden">Volume</span>
@@ -98,15 +115,6 @@
         </label>
       </div>
     </div>
-
-    <section class="loop">
-      <h2 class="visually-hidden">The loop</h2>
-      <div class="rail" id="rail" role="img" aria-label="The broadcast loop."></div>
-      <p class="loop__meta">
-        <span class="loop__caption" id="rail-caption"></span>
-        <span class="loop__time"><span id="elapsed">0:00</span> / <span id="total">0:00</span></span>
-      </p>
-    </section>
 
     <p class="notice" id="notice" role="status" hidden></p>
 

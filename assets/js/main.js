@@ -460,6 +460,51 @@ function applyVolume(value) {
   }
 }
 
+/* ---------------------------------------------------------------- theme -- */
+
+const THEME_KEY = 'begambeli:theme';
+
+/** What is on screen right now, whether chosen or inherited from the system. */
+function activeTheme() {
+  const chosen = document.documentElement.dataset.theme;
+  if (chosen === 'light' || chosen === 'dark') return chosen;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * An explicit choice, which outranks the system setting in both directions and
+ * survives a reload. The inline script in the document head applies it before
+ * the first paint; this only has to handle the click.
+ */
+function setTheme(value) {
+  document.documentElement.dataset.theme = value;
+  try {
+    localStorage.setItem(THEME_KEY, value);
+  } catch {
+    /* storage blocked — the choice just will not outlive the tab */
+  }
+  paintThemeToggle();
+}
+
+function paintThemeToggle() {
+  const next = activeTheme() === 'dark' ? 'light' : 'dark';
+  el.theme.setAttribute('aria-label', `Switch to ${next}`);
+
+  // Keep the browser chrome in step. The two <meta media=...> tags cover the
+  // system setting; an explicit choice has to be applied by hand.
+  //
+  // Read which tag is which from data-scheme, not from its media attribute —
+  // the first toggle overwrites media, and deriving identity from a value this
+  // function itself rewrites leaves both tags disabled on the second press.
+  const chosen = document.documentElement.dataset.theme;
+  for (const tag of document.querySelectorAll('meta[name="theme-color"]')) {
+    const forDark = tag.dataset.scheme === 'dark';
+    tag.media = chosen
+      ? (forDark === (chosen === 'dark') ? 'all' : 'not all')
+      : `(prefers-color-scheme: ${forDark ? 'dark' : 'light'})`;
+  }
+}
+
 /* ---------------------------------------------------------------- entry -- */
 
 /**
@@ -499,8 +544,19 @@ async function startListening() {
 }
 
 async function start() {
-  const ids = ['title', 'artist', 'cover', 'elapsed', 'total', 'rail', 'notice', 'toggle', 'volume'];
+  const ids = ['title', 'artist', 'cover', 'elapsed', 'total', 'rail', 'notice',
+    'toggle', 'volume', 'theme'];
   for (const id of ids) el[id] = document.getElementById(id);
+
+  paintThemeToggle();
+  el.theme.addEventListener('click', () =>
+    setTheme(activeTheme() === 'dark' ? 'light' : 'dark'));
+
+  // Someone who has never pressed the button keeps following their system, so
+  // the label has to keep up if that changes underneath us.
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (!document.documentElement.dataset.theme) paintThemeToggle();
+  });
 
   state.volume = readStoredVolume();
   el.volume.value = String(state.volume);

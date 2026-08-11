@@ -5,7 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Begambeli Radio — one signal, one schedule</title>
 <meta name="description" content="A small internet radio station from begambeli.com. Everyone listening hears the same second of the same song.">
-<meta name="theme-color" content="#e9ede3">
+<!-- data-scheme is what identifies these once a manual choice has rewritten
+     their media attribute. -->
+<meta name="theme-color" data-scheme="light" content="#e9ede3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" data-scheme="dark" content="#171d15" media="(prefers-color-scheme: dark)">
+
+<!-- Before the stylesheet, and deliberately not in main.js: that is a module,
+     so it is deferred, and applying a stored preference from it would repaint
+     after the first frame — a flash of the wrong theme on every single load. -->
+<script>
+  try {
+    var t = localStorage.getItem('begambeli:theme');
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  } catch (e) {
+    /* storage blocked; the media query still decides */
+  }
+</script>
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Begambeli Radio">
@@ -63,7 +78,19 @@
          anyone has pressed play. -->
     <span class="onair"><span class="onair__dot" aria-hidden="true"></span>On air</span>
 
-    <a class="homelink" href="https://begambeli.com" target="_blank" rel="noopener">begambeli.com →</a>
+    <span class="topbar__end">
+      <button class="themetoggle" id="theme" type="button" aria-label="Switch to dark">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2.4v2.2M12 19.4v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.4 12h2.2M19.4 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/>
+        </svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.7 14.6A8.6 8.6 0 0 1 9.4 3.3a8.6 8.6 0 1 0 11.3 11.3z"/>
+        </svg>
+      </button>
+      <a class="homelink" href="https://begambeli.com" target="_blank" rel="noopener">begambeli.com →</a>
+    </span>
   </header>
 
   <main class="hero">

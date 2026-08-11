@@ -131,6 +131,46 @@ everything else is `system-ui`; nothing loads from a third-party CDN at runtime.
 
 The mockups live in `data/design/`, which is gitignored and never deployed.
 
+### Light and dark
+
+The handoff has no dark variant, so the night version is a design call: the same bamboo
+grove after dark rather than a different site. Deep forest ground `#171d15` instead of
+neutral black, the sage washes become a fainter glow, bamboo lifts to a paler green, and the
+pill becomes a *raised* surface (`#262e22`, lighter than the ground) rather than the dark
+object it is by day.
+
+The theme is chosen in three CSS blocks, so that an explicit choice beats the system setting
+in both directions:
+
+```css
+:root                              /* light, the base            */
+@media (prefers-color-scheme: dark)
+  :root:not([data-theme='light'])  /* dark, unless light was asked for */
+:root[data-theme='dark']           /* dark, whatever the system says   */
+```
+
+The dark palette is written once as `--dark-*` and referenced by both dark selectors, so the
+two cannot drift apart. With nothing stored, `data-theme` is never set at all and the media
+query stays in charge — someone who has not touched the button keeps following their system
+if it changes later.
+
+**The inline script in `<head>` is load-bearing.** It applies a stored preference before the
+stylesheet, because `main.js` is a module and therefore deferred; applying it from there
+would repaint after the first frame and flash the wrong theme on every load. Verified: with
+the system set light and dark stored, the first animation frame is already dark.
+
+**Why `--panda-ink` is separate from `--ink`.** `--ink` was doing two jobs — text colour and
+the panda's black. Flipping it for dark would give you a light-eared panda, which is not a
+panda. The animal now has its own tokens and stays black and white in both themes. A third,
+`--panda-silhouette`, covers the parts that sit against the ground rather than the white
+face: black on near-black has no contrast at all (1.07:1), so at night the ears and paws lift
+a fraction above the ground and take a 1px rim of moonlight, which measures 3.9:1 against the
+ground and is what actually keeps the silhouette.
+
+One more trap worth knowing: the gaps between bamboo segments are drawn with inset shadows in
+the *background colour*. That is what `--node` is for. Hardcode it and dark mode paints pale
+bars across the stalks.
+
 ### Two departures from the handoff, on purpose
 
 **Muted ink is darker.** The prototype specifies `rgba(26,31,24,0.55)` for the subline and

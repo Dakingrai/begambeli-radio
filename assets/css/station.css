@@ -26,11 +26,42 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* Themes
+   ----------------------------------------------------------------------------
+   Three blocks, so that an explicit choice wins in both directions and the
+   system setting fills in for everyone who has not made one:
+
+     :root                             light, the base
+     prefers-color-scheme: dark        dark, unless light was explicitly chosen
+     :root[data-theme='dark']          dark, whatever the system says
+
+   The dark palette is written once in --dark-* and referenced by both dark
+   selectors, so it cannot drift out of step with itself.
+
+   Note --panda-ink and --panda-face: the animal is black and white in both
+   themes. Only text follows --ink. A panda whose ears change colour with the
+   theme is not a panda. */
+
 :root {
   --sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
   --display: 'Fredoka', var(--sans);
 
+  /* Constant across themes ------------------------------------------------ */
+  --panda-ink: #12160f;
+  --panda-face: #fff;
+  /* The parts that sit against the ground rather than against the white face.
+     Black on near-black has no contrast at all, so at night these lift just
+     above the ground and take a rim — a dark ear catching a little moonlight,
+     rather than a hollow ring. On the face (eyes, nose, the inset ring)
+     --panda-ink stays near-black in both themes. */
+  --panda-silhouette: #12160f;
+  --panda-rim: transparent; /* dark mode lights the edges; see below */
+  --flower: #f99c00;
+  --on-dark-2: rgba(255, 255, 255, 0.62);
+  --on-dark-3: rgba(255, 255, 255, 0.55);
+
+  /* Light ----------------------------------------------------------------- */
   --bg: #e9ede3;
   --ink: #1a1f18;
   /* The prototype asks for 0.55 / 0.6 here. On this ground that measures about
@@ -39,14 +70,110 @@
   --ink-2: rgba(26, 31, 24, 0.66);
 
   --accent: #e0407a;
-  --flower: #f99c00;
   --sage: rgba(90, 122, 84, 0.18);
   --sage-soft: rgba(90, 122, 84, 0.14);
-  --bamboo: rgba(107, 140, 98, 0.5);
+
+  --bamboo-a: rgba(107, 140, 98, 0.5);
+  --bamboo-b: rgba(107, 140, 98, 0.35);
+  --bamboo-c: rgba(107, 140, 98, 0.38);
+  --bamboo-d: rgba(107, 140, 98, 0.26);
+  --leaf-a: rgba(107, 140, 98, 0.45);
+  --leaf-b: rgba(107, 140, 98, 0.35);
+  /* The gaps between bamboo segments are painted in the ground colour, so this
+     has to track the ground or it draws bars across the stalks. */
+  --node: rgba(233, 237, 227, 0.9);
+
+  --petal-a: rgba(224, 64, 122, 0.35);
+  --petal-b: rgba(224, 64, 122, 0.25);
 
   --pill: rgba(26, 31, 24, 0.92);
-  --on-dark-2: rgba(255, 255, 255, 0.62);
-  --on-dark-3: rgba(255, 255, 255, 0.55);
+  --pill-edge: transparent;
+  --pill-shadow: 0 14px 44px rgba(26, 31, 24, 0.3);
+  --onair-bg: rgba(26, 31, 24, 0.9);
+  --disc-groove: repeating-radial-gradient(circle at 50% 50%, #2a2f27 0 2px, #1f241d 2px 4px);
+
+  --notice-bg: rgba(224, 64, 122, 0.12);
+  --notice-edge: rgba(224, 64, 122, 0.4);
+
+  /* Dark, defined once ---------------------------------------------------- */
+  --dark-bg: #171d15;
+  --dark-ink: #e6ebe0;
+  --dark-ink-2: rgba(230, 235, 224, 0.66);
+  --dark-accent: #ec568a;
+  --dark-sage: rgba(122, 158, 112, 0.14);
+  --dark-sage-soft: rgba(122, 158, 112, 0.1);
+  --dark-bamboo-a: rgba(138, 170, 128, 0.55);
+  --dark-bamboo-b: rgba(138, 170, 128, 0.38);
+  --dark-bamboo-c: rgba(138, 170, 128, 0.4);
+  --dark-bamboo-d: rgba(138, 170, 128, 0.28);
+  --dark-leaf-a: rgba(138, 170, 128, 0.5);
+  --dark-leaf-b: rgba(138, 170, 128, 0.38);
+  --dark-node: rgba(23, 29, 21, 0.92);
+  --dark-petal-a: rgba(236, 86, 138, 0.42);
+  --dark-petal-b: rgba(236, 86, 138, 0.3);
+  --dark-pill: #262e22;
+  --dark-pill-edge: rgba(230, 235, 224, 0.12);
+  --dark-pill-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
+  --dark-onair-bg: #262e22;
+  --dark-notice-bg: rgba(236, 86, 138, 0.16);
+  --dark-notice-edge: rgba(236, 86, 138, 0.45);
+  /* Black on near-black has no edge. A hairline of moonlight keeps the ears. */
+  --dark-panda-rim: rgba(230, 235, 224, 0.45);
+  --dark-panda-silhouette: #232b1e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: var(--dark-bg);
+    --ink: var(--dark-ink);
+    --ink-2: var(--dark-ink-2);
+    --accent: var(--dark-accent);
+    --sage: var(--dark-sage);
+    --sage-soft: var(--dark-sage-soft);
+    --bamboo-a: var(--dark-bamboo-a);
+    --bamboo-b: var(--dark-bamboo-b);
+    --bamboo-c: var(--dark-bamboo-c);
+    --bamboo-d: var(--dark-bamboo-d);
+    --leaf-a: var(--dark-leaf-a);
+    --leaf-b: var(--dark-leaf-b);
+    --node: var(--dark-node);
+    --petal-a: var(--dark-petal-a);
+    --petal-b: var(--dark-petal-b);
+    --pill: var(--dark-pill);
+    --pill-edge: var(--dark-pill-edge);
+    --pill-shadow: var(--dark-pill-shadow);
+    --onair-bg: var(--dark-onair-bg);
+    --notice-bg: var(--dark-notice-bg);
+    --notice-edge: var(--dark-notice-edge);
+    --panda-rim: var(--dark-panda-rim);
+    --panda-silhouette: var(--dark-panda-silhouette);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: var(--dark-bg);
+  --ink: var(--dark-ink);
+  --ink-2: var(--dark-ink-2);
+  --accent: var(--dark-accent);
+  --sage: var(--dark-sage);
+  --sage-soft: var(--dark-sage-soft);
+  --bamboo-a: var(--dark-bamboo-a);
+  --bamboo-b: var(--dark-bamboo-b);
+  --bamboo-c: var(--dark-bamboo-c);
+  --bamboo-d: var(--dark-bamboo-d);
+  --leaf-a: var(--dark-leaf-a);
+  --leaf-b: var(--dark-leaf-b);
+  --node: var(--dark-node);
+  --petal-a: var(--dark-petal-a);
+  --petal-b: var(--dark-petal-b);
+  --pill: var(--dark-pill);
+  --pill-edge: var(--dark-pill-edge);
+  --pill-shadow: var(--dark-pill-shadow);
+  --onair-bg: var(--dark-onair-bg);
+  --notice-bg: var(--dark-notice-bg);
+  --notice-edge: var(--dark-notice-edge);
+  --panda-rim: var(--dark-panda-rim);
+  --panda-silhouette: var(--dark-panda-silhouette);
 }
 
 *,
@@ -153,10 +280,10 @@ p {
   width: 9px;
   height: 250px;
   border-radius: 5px;
-  background: linear-gradient(rgba(107, 140, 98, 0.5), rgba(107, 140, 98, 0.35));
+  background: linear-gradient(var(--bamboo-a), var(--bamboo-b));
   box-shadow:
-    inset 0 -60px 0 -58px rgba(233, 237, 227, 0.9),
-    inset 0 -130px 0 -128px rgba(233, 237, 227, 0.9);
+    inset 0 -60px 0 -58px var(--node),
+    inset 0 -130px 0 -128px var(--node);
 }
 
 .bamboo--short {
@@ -164,10 +291,10 @@ p {
   width: 7px;
   height: 180px;
   border-radius: 4px;
-  background: linear-gradient(rgba(107, 140, 98, 0.38), rgba(107, 140, 98, 0.26));
+  background: linear-gradient(var(--bamboo-c), var(--bamboo-d));
   box-shadow:
-    inset 0 -50px 0 -48px rgba(233, 237, 227, 0.9),
-    inset 0 -110px 0 -108px rgba(233, 237, 227, 0.9);
+    inset 0 -50px 0 -48px var(--node),
+    inset 0 -110px 0 -108px var(--node);
 }
 
 .leaf {
@@ -180,7 +307,7 @@ p {
   bottom: 118px;
   width: 26px;
   height: 9px;
-  background: rgba(107, 140, 98, 0.45);
+  background: var(--leaf-a);
   transform: rotate(-24deg);
 }
 
@@ -189,7 +316,7 @@ p {
   bottom: 150px;
   width: 22px;
   height: 8px;
-  background: rgba(107, 140, 98, 0.35);
+  background: var(--leaf-b);
   transform: rotate(200deg);
 }
 
@@ -213,7 +340,7 @@ p {
 .petal--a > span {
   width: 13px;
   height: 13px;
-  background: rgba(224, 64, 122, 0.35);
+  background: var(--petal-a);
   animation: bgb-sway 5s ease-in-out infinite;
 }
 
@@ -225,7 +352,7 @@ p {
 .petal--b > span {
   width: 10px;
   height: 10px;
-  background: rgba(224, 64, 122, 0.25);
+  background: var(--petal-b);
   animation: bgb-sway 6s ease-in-out infinite 2s;
 }
 
@@ -266,7 +393,8 @@ p {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--panda-silhouette);
+  box-shadow: 0 0 0 1px var(--panda-rim);
 }
 
 .logo__ear--l { left: -1px; }
@@ -276,8 +404,8 @@ p {
   position: absolute;
   inset: 2px 1px 0;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: var(--panda-face);
+  box-shadow: inset 0 0 0 2px var(--panda-ink), 0 0 0 1px var(--panda-rim);
 }
 
 .logo__eye {
@@ -286,7 +414,7 @@ p {
   width: 7px;
   height: 9px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--panda-ink);
 }
 
 .logo__eye--l { left: 7px; transform: rotate(-15deg); }
@@ -299,7 +427,7 @@ p {
   width: 5px;
   height: 4px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--panda-ink);
   transform: translateX(-50%);
 }
 
@@ -340,7 +468,7 @@ p {
   padding: 6px 14px 6px 11px;
   font-weight: 500;
   color: #fff;
-  background: rgba(26, 31, 24, 0.9);
+  background: var(--onair-bg);
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -362,8 +490,47 @@ p {
   animation: bgb-ping 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-.homelink {
+.topbar__end {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
   justify-self: end;
+  min-width: 0;
+}
+
+/* Shows the destination, not the current state: in light it offers the moon. */
+.themetoggle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.themetoggle:hover {
+  color: var(--ink);
+}
+
+/* Light is the base, so the button offers the moon — matching its label,
+   "Switch to dark". In dark it offers the sun. */
+.themetoggle .icon-sun { display: none; }
+.themetoggle .icon-moon { display: block; }
+
+:root[data-theme='dark'] .themetoggle .icon-sun { display: block; }
+:root[data-theme='dark'] .themetoggle .icon-moon { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .themetoggle .icon-sun { display: block; }
+  :root:not([data-theme='light']) .themetoggle .icon-moon { display: none; }
+}
+
+.homelink {
   color: var(--ink-2);
   text-decoration: none;
   white-space: nowrap;
@@ -419,7 +586,8 @@ p {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--panda-silhouette);
+  box-shadow: 0 0 0 1px var(--panda-rim);
 }
 
 .panda__ear--l { left: 14px; }
@@ -432,8 +600,8 @@ p {
   width: 104px;
   height: 104px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: inset 0 0 0 3px var(--ink);
+  background: var(--panda-face);
+  box-shadow: inset 0 0 0 3px var(--panda-ink), 0 0 0 1px var(--panda-rim);
   transform: translateX(-50%);
 }
 
@@ -443,7 +611,7 @@ p {
   width: 17px;
   height: 21px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--panda-ink);
 }
 
 .panda__eye--l { left: 41px; transform: rotate(-14deg); animation: bgb-blink 5s infinite 1s; }
@@ -467,7 +635,8 @@ p {
   width: 22px;
   height: 16px;
   border-radius: 50% 50% 0 0;
-  background: var(--ink);
+  background: var(--panda-silhouette);
+  box-shadow: 0 0 0 1px var(--panda-rim);
 }
 
 .panda__paw--l { left: 2px; }
@@ -497,8 +666,8 @@ p {
   padding: 8px 14px;
   font-size: 13px;
   color: var(--ink);
-  background: rgba(224, 64, 122, 0.12);
-  border: 1px solid rgba(224, 64, 122, 0.4);
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-edge);
   border-radius: 999px;
   text-align: center;
 }
@@ -521,8 +690,9 @@ p {
   padding: 11px 20px 11px 11px;
   color: #fff;
   background: var(--pill);
+  border: 1px solid var(--pill-edge);
   border-radius: 999px;
-  box-shadow: 0 14px 44px rgba(26, 31, 24, 0.3);
+  box-shadow: var(--pill-shadow);
 }
 
 .disc {
@@ -532,7 +702,7 @@ p {
   height: 62px;
   border-radius: 50%;
   overflow: hidden;
-  background: repeating-radial-gradient(circle at 50% 50%, #2a2f27 0 2px, #1f241d 2px 4px);
+  background: var(--disc-groove);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
   animation: bgb-spin 7s linear infinite;
   animation-play-state: paused;
@@ -563,7 +733,7 @@ p {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--panda-ink);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
   transform: translate(-50%, -50%);
 }
@@ -674,7 +844,7 @@ p {
   width: 48px;
   height: 48px;
   padding: 0;
-  color: var(--ink);
+  color: var(--panda-ink);
   background: #fff;
   border: 0;
   border-radius: 50%;

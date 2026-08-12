@@ -42,6 +42,12 @@ halves the round trip, and derives all schedule time from the corrected value. I
 re-measures whenever the tab comes back to the foreground. If that fails the station
 carries on with the local clock — one desynced listener beats a blank page.
 
+The clock in the header is the listener's own wall time, in their timezone and their
+12/24-hour convention, but it is formatted from that same corrected value rather than from
+`Date.now()`. If someone's laptop is five minutes fast, the header shows the real time —
+for exactly the reason the schedule does not trust their clock either. It carries no
+seconds: the moving numbers belong to the timecode in the pill.
+
 **Negative modulo.** JavaScript's `%` keeps the sign of the dividend, so a listener whose
 clock is set before the epoch would compute a negative index. `positionAt` folds the value
 twice to pin it into range.

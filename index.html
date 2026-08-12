@@ -106,7 +106,12 @@
 
     <!-- The station, not your speakers: it is broadcasting whether or not
          anyone has pressed play. -->
-    <span class="onair" title="The station is always broadcasting. Pausing quiets your speakers; it keeps running without you."><span class="onair__dot" aria-hidden="true"></span>On air</span>
+    <span class="airtime">
+      <span class="onair" title="The station is always broadcasting. Pausing quiets your speakers; it keeps running without you."><span class="onair__dot" aria-hidden="true"></span>On air</span>
+      <!-- Your wall clock, in your timezone, but read off the station's
+           skew-corrected time — so it is right even when your device is not. -->
+      <time class="localtime" id="localtime" title="Your local time, as the station reckons it."></time>
+    </span>
 
     <span class="topbar__end">
       <button class="switch" id="theme" type="button" role="switch" aria-checked="false" aria-label="Dark mode">

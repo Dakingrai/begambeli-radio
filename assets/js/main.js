@@ -51,6 +51,11 @@ const DRIFT_TOLERANCE = 2; // seconds of slip we will live with
 const SETTLE_TOLERANCE = 1; // tighter, once, to absorb buffering on load
 const BOUNDARY_LEAD_MS = 350; // land just past a track change, not just before
 const TICK_MS = 1000;
+
+/* Built once. Constructing an Intl formatter is expensive and paint() runs
+   every second. An empty locale list means "whatever the browser is set to",
+   which is what decides 11:07 PM against 23:07. */
+const TIME_FORMAT = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' });
 const VOLUME_KEY = 'begambeli:volume';
 const DEFAULT_VOLUME = 70;
 
@@ -361,7 +366,23 @@ function paint() {
   setCover(track);
 
   paintQuote();
+  paintLocalTime();
   paintRail(pos);
+}
+
+/**
+ * The listener's own wall clock, in their own timezone and their own 12/24-hour
+ * convention, but derived from the corrected time rather than from Date.now().
+ * A listener whose laptop is five minutes fast should see the real time here,
+ * for the same reason the schedule does not trust their clock either.
+ *
+ * No seconds: this is orientation, not the countdown. The timecode in the pill
+ * is where the moving numbers belong.
+ */
+function paintLocalTime() {
+  const at = new Date(now() * 1000);
+  setText(el.localtime, TIME_FORMAT.format(at));
+  if (el.localtime) el.localtime.dateTime = at.toISOString();
 }
 
 /**
@@ -601,8 +622,12 @@ async function startListening() {
 
 async function start() {
   const ids = ['title', 'artist', 'cover', 'elapsed', 'total', 'rail', 'notice',
-    'toggle', 'volume', 'theme', 'quote'];
+    'toggle', 'volume', 'theme', 'quote', 'localtime'];
   for (const id of ids) el[id] = document.getElementById(id);
+
+  // Ahead of the fetch below, so the header is never briefly missing a clock.
+  // Skew is still zero here; the next tick corrects it.
+  paintLocalTime();
 
   paintThemeToggle();
   el.theme.addEventListener('click', () =>

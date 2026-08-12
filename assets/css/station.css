@@ -291,7 +291,7 @@ body {
   background: transparent;
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -663,6 +663,22 @@ p {
   background: var(--flower);
 }
 
+/* The pill and the clock travel together in the header's middle cell. */
+.airtime {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Tabular figures so the width does not twitch as the minute turns. */
+.localtime {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
 .onair {
   display: inline-flex;
   gap: 8px;
@@ -874,7 +890,7 @@ p {
 .hero__title {
   position: relative;
   font-family: var(--display);
-  font-size: clamp(2.25rem, 8vw, 66px);
+  font-size: clamp(2.4rem, 8.4vw, 70px);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -882,7 +898,7 @@ p {
 }
 
 .hero__sub {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--ink-2);
   text-align: center;
   text-wrap: balance;
@@ -898,7 +914,7 @@ p {
 .notice {
   margin-top: 14px;
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink);
   background: var(--notice-bg);
   border: 1px solid var(--notice-edge);
@@ -989,7 +1005,7 @@ p {
 }
 
 .now__title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -997,7 +1013,7 @@ p {
 }
 
 .now__artist {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--pill-ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1036,7 +1052,7 @@ p {
 }
 
 .clock {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--pill-ink-3);
   font-variant-numeric: tabular-nums;
 }
@@ -1219,7 +1235,7 @@ input[type='range']::-moz-range-thumb {
 
   .brand__name,
   .homelink {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .pill {

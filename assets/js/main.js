@@ -672,8 +672,16 @@ async function start() {
   // A tab that was backgrounded for an hour must rejoin the broadcast, not
   // pick up where it left off. Re-measure the clock first: a sleeping machine
   // often wakes with a stale one.
-  document.addEventListener('visibilitychange', async () => {
+  async function handleReturn() {
     if (document.visibilityState !== 'visible') return;
+
+    // Get the audio back first, on whatever clock we already have. measureSkew
+    // is a network round trip with no timeout, and a phone waking on a poor
+    // connection can leave it hanging for a long time — everything after an
+    // `await` on it would never run. Silence is the worse failure; the passes
+    // below correct the position once the fresh measurement lands.
+    rejoinAfterReturn();
+    paint();
 
     await measureSkew();
 
@@ -685,7 +693,21 @@ async function start() {
     setTimeout(rejoinAfterReturn, 4000);
 
     paint();
-  });
+  }
+
+  document.addEventListener('visibilitychange', handleReturn);
+
+  // Phones are the reason there are three of these. Locking the screen and
+  // unlocking it is the ordinary visibilitychange case, but a browser that
+  // restored the page from the back/forward cache — iOS Safari especially —
+  // can come back on pageshow without one, and returning from another app can
+  // arrive as a plain focus. rejoinAfterReturn guards on visibility and on
+  // userPaused and is idempotent, so overlapping triggers cost nothing.
+  window.addEventListener('pageshow', handleReturn);
+
+  // No skew request of its own: focus fires often, and a HEAD per click would
+  // be a lot of noise for a check that is only worth making when we were away.
+  window.addEventListener('focus', () => rejoinAfterReturn());
 }
 
 start().catch((err) => {

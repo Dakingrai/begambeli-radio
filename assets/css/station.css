@@ -48,6 +48,9 @@
   /* Constant in both modes ------------------------------------------------ */
   --accent: #e0407a;
   --flower: #f99c00;
+  /* How long one hide-and-peek takes. Shorter means the panda comes back more
+     often; the keyframes below decide how much of that it spends up. */
+  --peek-cycle: 6s;
 
   /* Light ----------------------------------------------------------------- */
   --sky: linear-gradient(#e2e9da, #e9ede3 60%);
@@ -764,7 +767,7 @@ p {
   bottom: 0;
   width: 150px;
   height: 60px;
-  animation: bgb-peek 7s ease-in-out infinite;
+  animation: bgb-peek var(--peek-cycle) ease-in-out infinite;
 }
 
 .panda__ear {
@@ -1113,11 +1116,13 @@ input[type='range']::-moz-range-thumb {
   to   { transform: rotate(360deg); }
 }
 
+/* Up for roughly two thirds of the cycle, against about a third before. It
+   still ducks — that is the joke — but it is around long enough to be seen. */
 @keyframes bgb-peek {
-  0%, 18%   { transform: translateY(100%); }
-  30%, 70%  { transform: translateY(12%); }
-  55%       { transform: translateY(8%); }
-  82%, 100% { transform: translateY(100%); }
+  0%, 7%    { transform: translateY(100%); }
+  19%, 83%  { transform: translateY(12%); }
+  51%       { transform: translateY(8%); }
+  95%, 100% { transform: translateY(100%); }
 }
 
 @keyframes bgb-blink {

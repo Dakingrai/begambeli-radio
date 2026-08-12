@@ -989,6 +989,11 @@ p {
   transform: translate(-50%, -50%);
 }
 
+/* This stack is taller than the 62px disc, so it — not the disc — is what sets
+   the pill's height. The three font sizes below (title, artist, timecode) are
+   therefore load-bearing: raising them by 1px each made the band 4.5px taller.
+   Sized against the disc deliberately; leave them out of any type-scale change
+   unless the band is meant to grow with it. */
 .pill__mid {
   display: flex;
   flex: 1;
@@ -1005,7 +1010,7 @@ p {
 }
 
 .now__title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1013,7 +1018,7 @@ p {
 }
 
 .now__artist {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--pill-ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1052,7 +1057,7 @@ p {
 }
 
 .clock {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--pill-ink-3);
   font-variant-numeric: tabular-nums;
 }

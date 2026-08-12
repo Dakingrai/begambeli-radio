@@ -715,10 +715,25 @@ p {
 
 /* Hero -------------------------------------------------------------------- */
 
+/* The name and the player, centred together as one block. The reference docks
+   the player at the bottom of the viewport, but on a radio site that reads as
+   a footer — as though the thing you came for were chrome. The gap is what
+   keeps them legible as two objects rather than one. */
+.stack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(26px, 6vh, 60px);
+  width: 100%;
+  min-height: 0;
+}
+
 .hero {
   position: relative;
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -855,7 +870,7 @@ p {
   align-items: center;
   width: calc(100% - 48px);
   max-width: 660px;
-  margin: 0 24px 26px;
+  margin: 0 24px;
   padding: 11px 20px 11px 11px;
   color: var(--pill-ink);
   background: var(--pill-bg);
@@ -1157,7 +1172,7 @@ input[type='range']::-moz-range-thumb {
   .pill {
     width: calc(100% - 32px);
     gap: 12px;
-    margin: 0 16px 18px;
+    margin: 0 16px;
     padding: 10px 14px 10px 10px;
   }
 

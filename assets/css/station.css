@@ -428,6 +428,16 @@ p {
 .cloud--b .cloud__bar { width: 84px; height: 19px; background: var(--cloud-b); }
 .cloud--b .cloud__bar i:nth-child(1) { left: 14px; top: -9px; width: 30px; height: 20px; background: var(--cloud-b); }
 
+/* Two more, staggered so nothing drifts in lockstep with anything else. */
+.cloud--c { left: 52%; top: 62px; animation: bgb-cloud 19s ease-in-out infinite 6s; }
+.cloud--d { right: 34%; top: 152px; animation: bgb-cloud 24s ease-in-out infinite 11s; }
+
+.cloud--c .cloud__bar { width: 72px; height: 17px; background: var(--cloud-b); }
+.cloud--c .cloud__bar i:nth-child(1) { left: 12px; top: -8px; width: 26px; height: 18px; background: var(--cloud-b); }
+.cloud--c .cloud__bar i:nth-child(2) { left: 34px; top: -5px; width: 20px; height: 15px; background: var(--cloud-b); }
+.cloud--d .cloud__bar { width: 96px; height: 21px; background: var(--cloud-a); }
+.cloud--d .cloud__bar i:nth-child(1) { left: 20px; top: -10px; width: 32px; height: 23px; background: var(--cloud-a); }
+
 /* Karst peaks: three to a side, the far ones faintest. */
 .peak {
   position: absolute;
@@ -499,7 +509,9 @@ p {
   border-radius: 0 100% 0 100%;
 }
 
-.petal--a { left: 12%; animation: bgb-fall 17s linear infinite 1s; }
+/* Clear of the sun/moon at left 11% — falling straight through its face
+   reads as a blemish rather than as weather. */
+.petal--a { left: 19%; animation: bgb-fall 17s linear infinite 1s; }
 .petal--a > span {
   width: 13px;
   height: 13px;
@@ -515,6 +527,35 @@ p {
   background: var(--petal-b);
   box-shadow: var(--petal-glow-b);
   animation: bgb-sway 6s ease-in-out infinite 2s;
+}
+
+/* Three more. Spread across the width with odd durations and delays, so they
+   never queue up into a visible rhythm. */
+.petal--c { left: 30%; animation: bgb-fall 23s linear infinite 5s; }
+.petal--c > span {
+  width: 11px;
+  height: 11px;
+  background: var(--petal-b);
+  box-shadow: var(--petal-glow-b);
+  animation: bgb-sway 6.5s ease-in-out infinite 1s;
+}
+
+.petal--d { left: 46%; animation: bgb-fall 19s linear infinite 13s; }
+.petal--d > span {
+  width: 12px;
+  height: 12px;
+  background: var(--petal-a);
+  box-shadow: var(--petal-glow-a);
+  animation: bgb-sway 5.5s ease-in-out infinite 3s;
+}
+
+.petal--e { left: 81%; animation: bgb-fall 25s linear infinite 3s; }
+.petal--e > span {
+  width: 9px;
+  height: 9px;
+  background: var(--petal-b);
+  box-shadow: var(--petal-glow-b);
+  animation: bgb-sway 7s ease-in-out infinite 4s;
 }
 
 /* Header ------------------------------------------------------------------ */

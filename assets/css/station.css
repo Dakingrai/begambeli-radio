@@ -842,6 +842,13 @@ p {
   color: var(--ink-2);
   text-align: center;
   text-wrap: balance;
+  /* Reserved so a shorter line cannot shift the player under it. */
+  min-height: 1.5em;
+  transition: opacity 320ms ease;
+}
+
+.hero__sub.is-fading {
+  opacity: 0;
 }
 
 .notice {

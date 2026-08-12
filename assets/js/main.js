@@ -16,6 +16,36 @@ import {
 } from './schedule.js';
 import { createPlayer, STATE, ERROR_REASON } from './player.js';
 
+/**
+ * The line under the station's name. Edit freely — order does not matter and
+ * the list can be any length.
+ *
+ * Chosen from the clock rather than at random, on the same corrected time the
+ * schedule uses, so everyone reading the page sees the same words at the same
+ * moment. That is the whole conceit of the station, applied to its copy.
+ */
+const QUOTE_SECONDS = 12;
+const QUOTES = [
+  'Clearly misunderstood.',
+  'Simplicity is difficult.',
+  'Deafening silence.',
+  'Alone, together.',
+  'Organised chaos.',
+  'Awfully good.',
+  'An original copy.',
+  'Found missing.',
+  'A familiar surprise.',
+  'Repetition never repeats.',
+  'Now is already gone.',
+  'Seriously funny.',
+  'An open secret.',
+  'Definitely maybe.',
+  'Act naturally.',
+  'Old news.',
+  'Sweet sorrow.',
+  'Same difference.',
+];
+
 const DRIFT_INTERVAL_MS = 30_000; // how often to check we are still in step
 const DRIFT_TOLERANCE = 2; // seconds of slip we will live with
 const SETTLE_TOLERANCE = 1; // tighter, once, to absorb buffering on load
@@ -330,7 +360,31 @@ function paint() {
   setText(el.artist, track.artist);
   setCover(track);
 
+  paintQuote();
   paintRail(pos);
+}
+
+/**
+ * Cross-fades to whichever line the clock is on. Called once a second, but
+ * only does anything when the answer changes.
+ */
+function paintQuote() {
+  const next = QUOTES[Math.floor(now() / QUOTE_SECONDS) % QUOTES.length];
+  if (!next || el.quote.textContent === next) return;
+  if (el.quote.classList.contains('is-fading')) return; // a swap is mid-flight
+
+  // The first one appears with the page rather than fading in from a blank.
+  if (!el.quote.dataset.ready) {
+    el.quote.dataset.ready = '1';
+    setText(el.quote, next);
+    return;
+  }
+
+  el.quote.classList.add('is-fading');
+  setTimeout(() => {
+    setText(el.quote, next);
+    el.quote.classList.remove('is-fading');
+  }, 320);
 }
 
 /** The sleeve on the disc. Only touched on a change, so it never re-fetches. */
@@ -547,7 +601,7 @@ async function startListening() {
 
 async function start() {
   const ids = ['title', 'artist', 'cover', 'elapsed', 'total', 'rail', 'notice',
-    'toggle', 'volume', 'theme'];
+    'toggle', 'volume', 'theme', 'quote'];
   for (const id of ids) el[id] = document.getElementById(id);
 
   paintThemeToggle();

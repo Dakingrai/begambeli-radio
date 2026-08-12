@@ -1,17 +1,13 @@
 # The station playlist, in broadcast order. One YouTube video ID or URL per line.
 # Blank lines and lines starting with # are ignored.
 #
+# Imported from https://www.youtube.com/playlist?list=PLfwITQ3WPP6U
+# Re-import:  node scripts/build-tracks.mjs --playlist PLfwITQ3WPP6U
+# A plain run keeps hand edits made here; a --playlist run overwrites them.
+#
 # Order matters: this is the loop. Appending to the end is safe. Reordering or
 # removing shifts every listener's position the moment they reload.
-#
-# Run `node scripts/build-tracks.mjs` after editing, then commit data/tracks.json.
 
-bNoGXzEL1mA   # Bipul Chettri — Asaar
-BpeFXed4K6I   # Nepathya — Resham
-8uIaRZrB6Jk   # Aruna Lama — Pohor Saal Khusi Fatda
-CAv5Ii8V5AU   # Narayan Gopal — Yo Samjhine Mann Chha
-s9h75Pb6sBQ   # Kutumba — Arbajo
-qgBZjbByYkY   # 1974 AD — Parelima
-fUebAVu-Pcw   # Phatteman — Yasto Pani Hudo Raichha
-N0jnLZxYwYc   # Mujhse Mohabbat Ka Izhaar — Hum Hain Rahi Pyar Ke
-0bfk90rWV9U   # Bipul Chettri — Syndicate
+xrfpgoItkSY   # Movement
+enIzF9bIh5Q   # Talk
+1ZsgY_C3Ttc   # Maya Pheri

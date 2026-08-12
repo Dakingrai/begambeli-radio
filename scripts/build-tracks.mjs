@@ -1,14 +1,20 @@
 #!/usr/bin/env node
 /**
- * Build data/tracks.json from data/ids.txt.
+ * Build data/tracks.json from data/ids.txt, or from a YouTube playlist.
  *
  * Local only. This never runs in production — the site is static files and
  * knows nothing about the YouTube Data API. Run it by hand, check the diff,
  * commit the result.
  *
  *   node scripts/build-tracks.mjs
- *   node scripts/build-tracks.mjs --refresh-titles   # let YouTube overwrite titles
- *   node scripts/build-tracks.mjs --force-covers     # re-download every cover
+ *   node scripts/build-tracks.mjs --playlist <url or id>   # import a playlist
+ *   node scripts/build-tracks.mjs --refresh-titles         # let YouTube overwrite titles
+ *   node scripts/build-tracks.mjs --force-covers           # re-download every cover
+ *
+ * --playlist replaces data/ids.txt with the playlist's contents, in the
+ * playlist's order, and then carries on as normal. ids.txt stays the committed
+ * source of truth so the loop is reproducible without another API call, and so
+ * a playlist edited later cannot reshuffle live listeners behind your back.
  *
  * Needs YT_API_KEY, from the environment or from .env at the repo root.
  */
@@ -25,9 +31,19 @@ const COVERS_DIR = join(ROOT, 'assets', 'covers');
 /** 2026-01-01T00:00:00Z. Only used when there is no tracks.json to inherit from. */
 const DEFAULT_EPOCH = 1767225600;
 
-const flags = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const flags = new Set(argv.filter((arg) => arg.startsWith('--')));
 const REFRESH_TITLES = flags.has('--refresh-titles');
 const FORCE_COVERS = flags.has('--force-covers');
+
+/** Accepts both `--playlist X` and `--playlist=X`. */
+function flagValue(name) {
+  const inline = argv.find((arg) => arg.startsWith(`--${name}=`));
+  if (inline) return inline.slice(name.length + 3);
+  const at = argv.indexOf(`--${name}`);
+  const next = at === -1 ? null : argv[at + 1];
+  return next && !next.startsWith('--') ? next : null;
+}
 
 let warnings = 0;
 const warn = (message) => {
@@ -95,6 +111,17 @@ function extractId(value) {
   return null;
 }
 
+/**
+ * A playlist URL or a bare playlist id. Playlist ids are not fixed-width the
+ * way video ids are, so this cannot validate much beyond the character set.
+ */
+function extractPlaylistId(value) {
+  const raw = String(value).trim();
+  const fromUrl = /[?&]list=([\w-]+)/.exec(raw);
+  const id = fromUrl ? fromUrl[1] : raw;
+  return /^[\w-]{2,}$/.test(id) ? id : null;
+}
+
 /* ------------------------------------------------------------- duration -- */
 
 /**
@@ -113,6 +140,90 @@ export function parseIsoDuration(iso) {
 
 /* -------------------------------------------------------------- youtube -- */
 
+/** The API's own message, which is far more useful than the status code. */
+async function apiError(res) {
+  const body = await res.text();
+  let detail = body.slice(0, 400);
+  try {
+    detail = JSON.parse(body).error?.message ?? detail;
+  } catch {
+    /* keep the raw body */
+  }
+  return new Error(`YouTube API returned ${res.status}: ${detail}`);
+}
+
+/**
+ * Every video id in a playlist, in playlist order.
+ *
+ * Private and deleted videos stay in a playlist as tombstones — the entry keeps
+ * its id but the title becomes "Private video". They would otherwise reach
+ * videos.list, come back empty, and be reported as a wrong id.
+ */
+async function fetchPlaylistIds(playlistId, key) {
+  if (/^RD/.test(playlistId)) {
+    throw new Error(
+      `${playlistId} is a YouTube mix. Mixes are generated per viewer and are not ` +
+        'readable through the API — save it as a real playlist first.',
+    );
+  }
+  if (playlistId === 'WL' || playlistId === 'LL') {
+    throw new Error(
+      `${playlistId} is Watch Later or Liked videos. Those are private to your ` +
+        'account and need OAuth, which an API key cannot do — copy them into a ' +
+        'normal playlist (unlisted is fine) and use that.',
+    );
+  }
+
+  const ids = [];
+  const seen = new Set();
+  let pageToken = '';
+  let pages = 0;
+
+  do {
+    const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
+    url.searchParams.set('part', 'contentDetails,snippet');
+    url.searchParams.set('playlistId', playlistId);
+    url.searchParams.set('maxResults', '50');
+    url.searchParams.set('key', key);
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+    const res = await fetch(url);
+    if (res.status === 404) {
+      throw new Error(
+        `No playlist ${playlistId}. Check the id, and note that a *private* ` +
+          'playlist is invisible to an API key — set it to unlisted.',
+      );
+    }
+    if (!res.ok) throw await apiError(res);
+
+    const payload = await res.json();
+    for (const item of payload.items ?? []) {
+      const id = item.contentDetails?.videoId;
+      if (!id) continue;
+
+      const title = item.snippet?.title ?? '';
+      if (title === 'Private video' || title === 'Deleted video') {
+        warn(`playlist entry ${id} is a ${title.toLowerCase()} — skipping it.`);
+        continue;
+      }
+      if (seen.has(id)) {
+        warn(`${id} appears more than once in the playlist — keeping the first`);
+        continue;
+      }
+
+      seen.add(id);
+      ids.push(id);
+    }
+
+    pageToken = payload.nextPageToken ?? '';
+    console.log(`  playlist page ${++pages}: ${ids.length} video${ids.length === 1 ? '' : 's'} so far`);
+  } while (pageToken && pages < 40);
+
+  if (pageToken) warn(`stopped at ${ids.length} videos — that is 40 pages and almost certainly a bug.`);
+
+  return ids;
+}
+
 async function fetchMetadata(ids, key) {
   const byId = new Map();
 
@@ -125,17 +236,7 @@ async function fetchMetadata(ids, key) {
 
     console.log(`  fetching ${batch.length} video${batch.length === 1 ? '' : 's'}`);
     const res = await fetch(url);
-
-    if (!res.ok) {
-      const body = await res.text();
-      let detail = body.slice(0, 400);
-      try {
-        detail = JSON.parse(body).error?.message ?? detail;
-      } catch {
-        /* keep the raw body */
-      }
-      throw new Error(`YouTube API returned ${res.status}: ${detail}`);
-    }
+    if (!res.ok) throw await apiError(res);
 
     const payload = await res.json();
     for (const item of payload.items ?? []) byId.set(item.id, item);
@@ -171,6 +272,40 @@ async function downloadCover(id) {
   return null;
 }
 
+/* ------------------------------------------------------------ ids.txt -- */
+
+/**
+ * Rewrite data/ids.txt from an imported playlist.
+ *
+ * The playlist is an importer, not the source of truth. Keeping the resolved
+ * order committed means the loop can be rebuilt without an API call, a diff
+ * shows exactly what moved, and re-ordering the playlist in YouTube months from
+ * now cannot silently reshuffle the station.
+ *
+ * No timestamp in the header: it would put a spurious line in every diff.
+ */
+async function writeIdsFile(playlistId, tracks) {
+  const lines = [
+    '# The station playlist, in broadcast order. One YouTube video ID or URL per line.',
+    '# Blank lines and lines starting with # are ignored.',
+    '#',
+    `# Imported from https://www.youtube.com/playlist?list=${playlistId}`,
+    `# Re-import:  node scripts/build-tracks.mjs --playlist ${playlistId}`,
+    '# A plain run keeps hand edits made here; a --playlist run overwrites them.',
+    '#',
+    "# Order matters: this is the loop. Appending to the end is safe. Reordering or",
+    "# removing shifts every listener's position the moment they reload.",
+    '',
+    // The title is a comment for whoever reads the diff; ids.txt never feeds it
+    // back in. Newlines and # would corrupt the file, so they go.
+    ...tracks.map((t) => `${t.id}   # ${t.title.replace(/[\r\n#]+/g, ' ').trim()}`),
+    '',
+  ];
+
+  await writeFile(IDS_FILE, lines.join('\n'), 'utf8');
+  console.log(`\n  rewrote data/ids.txt from the playlist — check the diff`);
+}
+
 /* ------------------------------------------------------------------ run -- */
 
 async function main() {
@@ -187,18 +322,39 @@ async function main() {
     process.exit(1);
   }
 
-  let idsText;
-  try {
-    idsText = await readFile(IDS_FILE, 'utf8');
-  } catch {
-    console.error(`\nNo ${IDS_FILE}. Create it with one YouTube id or URL per line.\n`);
-    process.exit(1);
-  }
+  const playlistArg = flagValue('playlist') ?? process.env.YT_PLAYLIST;
+  let playlistId = null;
+  let ids;
 
-  const ids = parseIds(idsText);
-  if (ids.length === 0) {
-    console.error('\ndata/ids.txt has no usable ids.\n');
-    process.exit(1);
+  if (playlistArg) {
+    playlistId = extractPlaylistId(playlistArg);
+    if (!playlistId) {
+      console.error(`\nCould not find a playlist id in "${playlistArg}".\n`);
+      process.exit(1);
+    }
+    console.log(`  reading playlist ${playlistId}`);
+    ids = await fetchPlaylistIds(playlistId, key);
+    if (ids.length === 0) {
+      console.error('\nThat playlist is empty, or everything in it is private.\n');
+      process.exit(1);
+    }
+  } else {
+    let idsText;
+    try {
+      idsText = await readFile(IDS_FILE, 'utf8');
+    } catch {
+      console.error(
+        `\nNo ${IDS_FILE}. Create it with one YouTube id or URL per line, or ` +
+          'import a playlist:\n\n  node scripts/build-tracks.mjs --playlist <url or id>\n',
+      );
+      process.exit(1);
+    }
+
+    ids = parseIds(idsText);
+    if (ids.length === 0) {
+      console.error('\ndata/ids.txt has no usable ids.\n');
+      process.exit(1);
+    }
   }
 
   // Whatever is already committed wins for the human-facing fields. Titles come
@@ -272,8 +428,22 @@ async function main() {
 
   const dropped = [...existing.keys()].filter((id) => !tracks.some((t) => t.id === id));
   if (dropped.length) {
-    console.log(`\n  no longer in ids.txt: ${dropped.join(', ')}`);
+    console.log(`\n  no longer in the list: ${dropped.join(', ')}`);
   }
+
+  // Appending extends the loop and leaves everyone where they were. Anything
+  // else moves every listener, which is worth saying out loud — especially on a
+  // playlist import, where the reorder happened in YouTube's UI days ago.
+  const before = (previous.tracks ?? []).map((t) => t.id);
+  const after = tracks.map((t) => t.id);
+  if (before.length && !before.every((id, i) => after[i] === id)) {
+    warn(
+      'the order changed — this is not a plain append. Every listener jumps to a ' +
+        'different point in the loop the moment they reload.',
+    );
+  }
+
+  if (playlistId) await writeIdsFile(playlistId, tracks);
 
   await writeFile(TRACKS_FILE, `${JSON.stringify({ epoch, tracks }, null, 2)}\n`, 'utf8');
 

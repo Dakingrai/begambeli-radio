@@ -86,6 +86,28 @@ cp .env.example .env            # add a YouTube Data API v3 key
 node scripts/build-tracks.mjs
 ```
 
+To take the list from a YouTube playlist instead of maintaining it by hand:
+
+```bash
+node scripts/build-tracks.mjs --playlist https://www.youtube.com/playlist?list=PLfwITQ3WPP6U
+```
+
+That reads the playlist, **rewrites `data/ids.txt` from it**, and carries on as normal.
+The playlist is an importer, not a live feed: the resolved order stays committed, so the
+loop rebuilds without an API call, the diff shows exactly what moved, and re-ordering the
+playlist in YouTube months later cannot silently reshuffle the station. Re-run the command
+whenever you want to pull changes across. Hand edits to `ids.txt` survive a plain run and
+are overwritten by a `--playlist` run.
+
+The site cannot read a playlist directly, and this is the reason: a playlist URL gives no
+durations, and durations are what make the schedule deterministic. Fetching them in the
+browser would mean shipping the API key, and a key in static files is a key anyone can
+lift. `--playlist` moves that work to your machine, where the key already lives.
+
+Watch Later, Liked videos and auto-generated mixes cannot be read with an API key — the
+first two need OAuth and the third is generated per viewer. Copy them into a normal
+playlist (unlisted is fine). Private playlists are invisible to a key; unlisted works.
+
 That rewrites `data/tracks.json` and downloads any missing cover art. Read the warnings,
 check the diff, commit both.
 

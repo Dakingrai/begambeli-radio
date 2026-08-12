@@ -106,6 +106,7 @@
   --onair-bg: rgba(26, 31, 24, 0.9);
   --onair-edge: transparent;
   --onair-ink: #fff;
+  --onair-ink-2: rgba(255, 255, 255, 0.72);
   --onair-dot-glow: 0 0 0 rgba(0, 0, 0, 0);
 
   --switch-track: rgba(26, 31, 24, 0.15);
@@ -178,6 +179,7 @@
   --d-onair-bg: rgba(232, 235, 226, 0.1);
   --d-onair-edge: rgba(232, 235, 226, 0.18);
   --d-onair-ink: #e8ebe2;
+  --d-onair-ink-2: rgba(232, 235, 226, 0.72);
   --d-onair-dot-glow: 0 0 10px rgba(224, 64, 122, 0.9);
 
   --d-switch-track: rgba(232, 235, 226, 0.18);
@@ -227,7 +229,8 @@
     --logo-ink: var(--d-logo-ink); --logo-face: var(--d-logo-face);
     --panda-face: var(--d-panda-face); --panda-face-glow: var(--d-panda-face-glow);
     --onair-bg: var(--d-onair-bg); --onair-edge: var(--d-onair-edge);
-    --onair-ink: var(--d-onair-ink); --onair-dot-glow: var(--d-onair-dot-glow);
+    --onair-ink: var(--d-onair-ink); --onair-ink-2: var(--d-onair-ink-2);
+    --onair-dot-glow: var(--d-onair-dot-glow);
     --switch-track: var(--d-switch-track); --switch-knob: var(--d-switch-knob);
     --switch-knob-shadow: var(--d-switch-knob-shadow); --switch-justify: flex-end;
     --pill-bg: var(--d-pill-bg); --pill-ink: var(--d-pill-ink);
@@ -261,7 +264,8 @@
   --logo-ink: var(--d-logo-ink); --logo-face: var(--d-logo-face);
   --panda-face: var(--d-panda-face); --panda-face-glow: var(--d-panda-face-glow);
   --onair-bg: var(--d-onair-bg); --onair-edge: var(--d-onair-edge);
-  --onair-ink: var(--d-onair-ink); --onair-dot-glow: var(--d-onair-dot-glow);
+  --onair-ink: var(--d-onair-ink); --onair-ink-2: var(--d-onair-ink-2);
+  --onair-dot-glow: var(--d-onair-dot-glow);
   --switch-track: var(--d-switch-track); --switch-knob: var(--d-switch-knob);
   --switch-knob-shadow: var(--d-switch-knob-shadow); --switch-justify: flex-end;
   --pill-bg: var(--d-pill-bg); --pill-ink: var(--d-pill-ink);
@@ -663,26 +667,13 @@ p {
   background: var(--flower);
 }
 
-/* The pill and the clock travel together in the header's middle cell. */
+/* One pill around both: the status and the time the status is true of. The
+   chrome lives here rather than on .onair so the border encloses the pair. */
 .airtime {
   display: inline-flex;
   gap: 10px;
   align-items: center;
   min-width: 0;
-}
-
-/* Tabular figures so the width does not twitch as the minute turns. */
-.localtime {
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-.onair {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
   padding: 6px 14px 6px 11px;
   font-weight: 500;
   color: var(--onair-ink);
@@ -691,6 +682,20 @@ p {
   border-radius: 999px;
   white-space: nowrap;
   transition: background 400ms ease, color 400ms ease, border-color 400ms ease;
+}
+
+.onair {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Muted against the pill, not against the sky — this sits on --onair-bg now,
+   so --ink-2 would be near-invisible in light mode. Tabular figures so the
+   pill does not change width as the minute turns. */
+.localtime {
+  font-variant-numeric: tabular-nums;
+  color: var(--onair-ink-2);
 }
 
 .onair__dot {

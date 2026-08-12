@@ -191,7 +191,12 @@ would repaint after the first frame and flash the wrong theme on every load.
 
 ### Traps in here
 
-**The pill inverts, so nothing inside it can be a literal.** Title, artist, timecode, track,
+**The On air pill encloses the clock**, so the time is painted on `--onair-bg`, not on the
+sky. It takes `--onair-ink-2`; `--ink-2` is muted *against the sky* and would be all but
+invisible on that dark surface in light mode. Unlike the player pill, this one does not
+invert — it is a dark surface with light text in both modes.
+
+**The player pill inverts, so nothing inside it can be a literal.** Title, artist, timecode, track,
 fill, thumb ring, play button, disc ring and spindle are all tokens, because every one of
 them swaps ends between modes.
 

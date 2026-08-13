@@ -57,6 +57,15 @@ against the schedule's, but only after confirming both refer to the same track. 
 boundary those two can disagree about which track is playing, and subtracting one offset
 from the other gives a meaningless number and a nonsense seek.
 
+**Never time a CSS transition with `setTimeout`.** The oxymoron under the name cross-fades,
+and the swap has to happen at the far end of the fade. A transition does not start when you
+add the class, it starts at the next style recalc — and on a phone that is doing other work
+that can be hundreds of milliseconds later. A timer counted from the class change then fires
+mid-fade and replaces the text while the old line is still a third visible, which reads as
+two lines printed over each other. Measured at 200ms of main-thread stall: the swap landed at
+opacity 0.37. It waits for `transitionend` instead, with a deliberately slack fallback timer
+that must only ever fire when there was no transition to wait for.
+
 **Pausing is not pausing.** The broadcast keeps running while you are paused — the title and
 the progress bar keep moving, and pressing play rejoins wherever the station has got to.
 A tab backgrounded for an hour rejoins live rather than resuming mid-bar.

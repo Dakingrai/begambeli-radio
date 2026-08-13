@@ -401,11 +401,53 @@ function paintQuote() {
     return;
   }
 
-  el.quote.classList.add('is-fading');
-  setTimeout(() => {
-    setText(el.quote, next);
-    el.quote.classList.remove('is-fading');
-  }, 320);
+  swapQuote(next);
+}
+
+/**
+ * Fades out, swaps the text, fades back in — with the swap pinned to the moment
+ * the fade has actually ended rather than to a hand-counted 320ms.
+ *
+ * The counted version assumed the transition began the instant the class was
+ * added. It does not: it begins at the next style recalc, which on a busy phone
+ * — decoding audio, running the panda and the clouds — can be a long way after.
+ * The timer then fired mid-fade and replaced the text while the old line was
+ * still visible, so for a moment both were on screen. Most obvious when a long
+ * line is replaced by a short one, because the tail of the long one sticks out
+ * past the end of the new one and reads as two lines printed over each other.
+ */
+function swapQuote(next) {
+  const node = el.quote;
+
+  const reveal = () => node.classList.remove('is-fading');
+
+  const swap = () => {
+    clearTimeout(guard);
+    node.removeEventListener('transitionend', onFaded);
+    setText(node, next);
+    // Hold the new text at zero opacity for one frame, so it is laid out and
+    // painted before anything animates it back up.
+    requestAnimationFrame(reveal);
+    setTimeout(reveal, 100); // requestAnimationFrame does not run in a hidden tab
+  };
+
+  const onFaded = (event) => {
+    if (event.propertyName === 'opacity') swap();
+  };
+
+  node.addEventListener('transitionend', onFaded);
+  // The event never arrives if the transition does not run at all — a hidden
+  // tab, a fade interrupted by something else. Without this fallback the
+  // `is-fading` guard above would latch and the quotes would stop changing for
+  // good. Deliberately far longer than the 320ms fade: this must only ever fire
+  // when there is no transition to wait for, because firing it while one is
+  // still running is exactly the mid-fade swap this function exists to avoid.
+  // Nothing notices the delay — the next line is not due for twelve seconds.
+  // (Reduced motion does not need it: that keeps a 0.01ms transition, which
+  // still fires the event, so quotes cut over promptly there too.)
+  const guard = setTimeout(swap, 2000);
+
+  node.classList.add('is-fading');
 }
 
 /** The sleeve on the disc. Only touched on a change, so it never re-fetches. */

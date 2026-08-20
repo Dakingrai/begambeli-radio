@@ -11,6 +11,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   makeSchedule,
+  makeDaily,
+  dailyWindowAt,
   positionAt,
   loopOffsetAt,
   nextPlayable,
@@ -165,11 +167,108 @@ test('formatClock', () => {
   assert.equal(formatClock(-5), '0:00');
 });
 
+console.log('\ndaily window');
+
+/* EPOCH is exactly a UTC midnight (1767225600 / 86400 is a whole number), which
+   makes the absolute times below readable: the window opens 900s into the day,
+   because 06:00 at +05:45 is 00:15 UTC. D is deliberately not a factor of a day. */
+const D = 1000;
+const OPEN = EPOCH + 900;
+const daily = makeDaily({
+  daily: {
+    from: '06:00',
+    to: '09:00',
+    zone: '+05:45',
+    track: { id: 'ddddddddddd', title: 'D', artist: 'x', duration: D },
+  },
+});
+
+/** The one-track schedule main.js builds for whichever window `t` falls in. */
+const morningAt = (t) =>
+  makeSchedule({ epoch: dailyWindowAt(daily, t).start, tracks: [daily.track] });
+
+test('06:00 Nepal is 00:15 UTC', () => {
+  assert.equal(daily.startOfDay, 900);
+  assert.equal(daily.length, 10800);
+});
+
+test('the window is half-open: it includes its start and excludes its end', () => {
+  assert.equal(dailyWindowAt(daily, OPEN - 1).inside, false);
+  assert.equal(dailyWindowAt(daily, OPEN).inside, true);
+  assert.equal(dailyWindowAt(daily, OPEN + 10799).inside, true);
+  assert.equal(dailyWindowAt(daily, OPEN + 10800).inside, false);
+});
+
+test('the song restarts from the top at every repeat inside the window', () => {
+  const offsetAt = (t) => positionAt(morningAt(t), t).offset;
+  assert.equal(offsetAt(OPEN), 0);
+  assert.equal(offsetAt(OPEN + D - 1), D - 1);
+  assert.equal(offsetAt(OPEN + D), 0); // second play
+  assert.equal(offsetAt(OPEN + 10799), 10799 % D);
+});
+
+test('the window is cut at its end, not run to the end of the song', () => {
+  // The last play starts before the close and would finish after it.
+  const last = OPEN + Math.floor(10800 / D) * D;
+  assert.ok(last + D > OPEN + 10800, 'fixture no longer straddles the close');
+  assert.equal(dailyWindowAt(daily, last).inside, true);
+  assert.equal(dailyWindowAt(daily, OPEN + 10800).inside, false);
+});
+
+test('the next edge is always in the future, so no timer can spin', () => {
+  for (let t = OPEN - 5; t < OPEN + 10805; t += 1) {
+    assert.ok(dailyWindowAt(daily, t).until > 0, `until was not positive at ${t}`);
+  }
+  assert.equal(dailyWindowAt(daily, OPEN).until, 10800); // to the close
+  assert.equal(dailyWindowAt(daily, OPEN + 10799).until, 1);
+  assert.equal(dailyWindowAt(daily, OPEN + 10800).until, 86400 - 10800); // to the next open
+});
+
+test('the window does not drift against the clock, day after day', () => {
+  // A day is not a whole number of plays (86400 % 1000 = 400), so a schedule
+  // pinned to one fixed epoch would start the song 400s further into itself
+  // every day. Deriving the epoch per window is what stops that.
+  for (let day = 0; day < 400; day++) {
+    const t = OPEN + day * 86400;
+    const w = dailyWindowAt(daily, t);
+    assert.equal(w.inside, true, `day ${day} was outside its own window`);
+    assert.equal(w.start, t, `day ${day} start drifted`);
+    assert.equal(positionAt(morningAt(t), t).offset, 0, `day ${day} did not start at 0:00`);
+  }
+});
+
+test('a clock set before the epoch still lands in a sane window', () => {
+  for (const t of [-1, -86399, -86400, -1767225600]) {
+    const w = dailyWindowAt(daily, t);
+    assert.ok(w.until > 0);
+    assert.ok(t - w.start >= 0 && t - w.start < 86400);
+    if (w.inside) assert.ok(positionAt(morningAt(t), t).offset >= 0);
+  }
+});
+
+test('a playlist with no window behaves exactly as it always did', () => {
+  assert.equal(makeDaily({ epoch: EPOCH, tracks: [] }), null);
+  assert.equal(makeDaily({ daily: null }), null);
+  assert.equal(dailyWindowAt(null, OPEN), null);
+});
+
+test('a bad window throws rather than misfiring at 6am', () => {
+  const ok = { from: '06:00', to: '09:00', zone: '+05:45', track: daily.track };
+  const bad = (over) => () => makeDaily({ daily: { ...ok, ...over } });
+  assert.throws(bad({ from: '22:00', to: '02:00' }), /crosses midnight/);
+  assert.throws(bad({ from: '09:00', to: '09:00' }), /crosses midnight/);
+  assert.throws(bad({ from: '6:00' }), /daily\.from/);
+  assert.throws(bad({ to: '24:00' }), /daily\.to/);
+  assert.throws(bad({ zone: 'Asia/Kathmandu' }), /fixed offset/);
+  assert.throws(bad({ track: { id: 'x', duration: 0 } }), /bad duration/);
+  assert.throws(bad({ track: { duration: 100 } }), /missing a YouTube id/);
+});
+
 console.log('\nreal playlist');
 
-const real = makeSchedule(
-  JSON.parse(await readFile(new URL('../data/tracks.json', import.meta.url), 'utf8')),
-);
+const rawReal = JSON.parse(await readFile(new URL('../data/tracks.json', import.meta.url), 'utf8'));
+const real = makeSchedule(rawReal);
+const realDaily = makeDaily(rawReal);
 
 test('data/tracks.json is a valid schedule', () => {
   assert.ok(real.total > 0);
@@ -189,6 +288,27 @@ test('every id looks like a YouTube id', () => {
 test('no duplicate ids', () => {
   const ids = real.tracks.map((t) => t.id);
   assert.equal(new Set(ids).size, ids.length);
+});
+
+test("data/tracks.json's daily window is valid", () => {
+  if (!realDaily) return void console.log('       no daily window configured');
+  const { id, title, artist, duration } = realDaily.track;
+  assert.match(id, /^[\w-]{11}$/, `${id} is not an 11-character id`);
+  assert.ok(title && artist, `${id} is missing title or artist`);
+  assert.ok(Number.isInteger(duration) && duration > 0);
+  console.log(
+    `       ${rawReal.daily.from}-${rawReal.daily.to} ${rawReal.daily.zone}, ` +
+      `${formatClock(duration)} on repeat, ${Math.floor(realDaily.length / duration)} full ` +
+      `plays then cut after ${formatClock(realDaily.length % duration)}`,
+  );
+});
+
+test('the daily track never plays at any other hour', () => {
+  if (!realDaily) return;
+  assert.ok(
+    !real.tracks.some((t) => t.id === realDaily.track.id),
+    `${realDaily.track.id} is in the ordinary loop as well as the window`,
+  );
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', with failures above' : ''}`);

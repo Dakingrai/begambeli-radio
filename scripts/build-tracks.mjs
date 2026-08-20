@@ -245,6 +245,72 @@ async function fetchMetadata(ids, key) {
   return byId;
 }
 
+/**
+ * The two ways a video looks perfectly healthy in the API response and then
+ * fails for a listener.
+ *
+ * An embed-disabled upload throws error 150 for everybody. Region locking is
+ * the same class of failure and the more likely one: auto-generated Art Tracks
+ * (the "<artist> - Topic" uploads) are routinely licensed for a handful of
+ * territories, and they look fine from anywhere on the list — including, most
+ * of the time, from here. Everyone else gets a grey box. The station is one
+ * broadcast for everybody, so a track cleared for eight countries is not a
+ * track some people miss, it is a hole in the schedule for the rest.
+ */
+function warnAboutAvailability(id, item) {
+  if (item.status?.embeddable === false) {
+    warn(`${id} ("${item.snippet?.title}") cannot be embedded — it will fail for listeners.`);
+  }
+
+  const region = item.contentDetails?.regionRestriction;
+  if (region?.allowed) {
+    warn(
+      `${id} ("${item.snippet?.title}") plays in only ${region.allowed.length} ` +
+        `countries (${region.allowed.join(', ')}). Everywhere else sees an error. ` +
+        'This is the usual shape of an Art Track — look for the same recording on ' +
+        "the artist's own channel.",
+    );
+  } else if (region?.blocked?.length) {
+    warn(
+      `${id} ("${item.snippet?.title}") is blocked in ${region.blocked.length} ` +
+        `countries (${region.blocked.join(', ')}).`,
+    );
+  }
+}
+
+/**
+ * Bring the daily window's track up to date in place: its real duration, its
+ * cover, and the availability warnings the loop tracks get.
+ *
+ * Its title and artist are left alone unconditionally — unlike the loop, there
+ * is no --refresh-titles for this one, because the raw YouTube title of a
+ * chant upload is a pile of pipe-separated keywords and nobody wants it back.
+ */
+async function refreshDaily(daily, item) {
+  const id = daily.track.id;
+
+  if (!item) {
+    warn(`the daily window's track ${id} returned nothing — leaving it as it stands.`);
+    return;
+  }
+
+  warnAboutAvailability(id, item);
+
+  const duration = parseIsoDuration(item.contentDetails?.duration);
+  if (!duration) {
+    warn(`the daily window's track ${id} has no usable duration — leaving it as it stands.`);
+  } else if (duration !== daily.track.duration) {
+    console.log(`  ${id} duration corrected: ${daily.track.duration}s -> ${duration}s`);
+    daily.track.duration = duration;
+  }
+
+  const cover = await downloadCover(id);
+  console.log(
+    `  ${id}  ${String(daily.track.duration).padStart(4)}s  ${cover ?? 'no cover'}  ` +
+      `${daily.track.title}  (daily ${daily.from}-${daily.to} ${daily.zone})`,
+  );
+}
+
 /* --------------------------------------------------------------- covers -- */
 
 const exists = (path) =>
@@ -368,13 +434,33 @@ async function main() {
   }
   const existing = new Map((previous.tracks ?? []).map((t) => [t.id, t]));
 
+  // The daily window is carried through untouched. It is hand-written rather
+  // than imported, and rebuilding this file from scratch would otherwise delete
+  // it silently — which is exactly the kind of loss nobody notices until 6am.
+  const daily = previous.daily ?? null;
+  const dailyId = daily?.track?.id ?? null;
+
+  // The one input that would break the promise the window makes. Its whole
+  // point is that this song plays in the morning and at no other hour; putting
+  // it in ids.txt would splice it into the ordinary loop as well.
+  if (dailyId && ids.includes(dailyId)) {
+    console.error(
+      `\n${dailyId} is the daily window's track and must not also be in data/ids.txt — ` +
+        'it would then play all day as well as in the window. Remove it from ids.txt.\n',
+    );
+    process.exit(1);
+  }
+
   const epoch = Number.isFinite(previous.epoch) ? previous.epoch : DEFAULT_EPOCH;
   if (epoch !== previous.epoch) {
     console.log(`  setting epoch to ${epoch} — never change this again`);
   }
 
   await mkdir(COVERS_DIR, { recursive: true });
-  const metadata = await fetchMetadata(ids, key);
+  // The daily track is fetched alongside the loop so it gets the same duration
+  // refresh, the same cover and the same availability warnings, without ever
+  // becoming part of the loop itself.
+  const metadata = await fetchMetadata(dailyId ? [...ids, dailyId] : ids, key);
 
   const tracks = [];
   for (const id of ids) {
@@ -397,33 +483,7 @@ async function main() {
       continue;
     }
 
-    // Not asked for in the spec, but worth the extra field on the request: an
-    // embed-disabled video looks perfectly healthy here and then throws error
-    // 150 for every listener.
-    if (item.status?.embeddable === false) {
-      warn(`${id} ("${item.snippet?.title}") cannot be embedded — it will fail for listeners.`);
-    }
-
-    // The same class of silent failure, and the more likely one. Auto-generated
-    // Art Tracks (the "<artist> - Topic" uploads) are routinely licensed for a
-    // handful of territories, and they look completely healthy from anywhere on
-    // the list — including, most of the time, from here. Everyone else gets a
-    // grey box. The station is one loop for everybody, so a track that is only
-    // cleared for eight countries is a hole in the broadcast for the rest.
-    const region = item.contentDetails?.regionRestriction;
-    if (region?.allowed) {
-      warn(
-        `${id} ("${item.snippet?.title}") plays in only ${region.allowed.length} ` +
-          `countries (${region.allowed.join(', ')}). Everywhere else sees an error. ` +
-          'This is the usual shape of an Art Track — look for the same recording on ' +
-          "the artist's own channel.",
-      );
-    } else if (region?.blocked?.length) {
-      warn(
-        `${id} ("${item.snippet?.title}") is blocked in ${region.blocked.length} ` +
-          `countries (${region.blocked.join(', ')}).`,
-      );
-    }
+    warnAboutAvailability(id, item);
 
     const held = existing.get(id);
     const keepHuman = held && !REFRESH_TITLES;
@@ -466,7 +526,13 @@ async function main() {
 
   if (playlistId) await writeIdsFile(playlistId, tracks);
 
-  await writeFile(TRACKS_FILE, `${JSON.stringify({ epoch, tracks }, null, 2)}\n`, 'utf8');
+  if (daily) await refreshDaily(daily, metadata.get(dailyId));
+
+  await writeFile(
+    TRACKS_FILE,
+    `${JSON.stringify(daily ? { epoch, tracks, daily } : { epoch, tracks }, null, 2)}\n`,
+    'utf8',
+  );
 
   const total = tracks.reduce((sum, t) => sum + t.duration, 0);
   const mins = Math.floor(total / 60);

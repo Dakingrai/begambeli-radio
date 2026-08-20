@@ -66,6 +66,21 @@ two lines printed over each other. Measured at 200ms of main-thread stall: the s
 opacity 0.37. It waits for `transitionend` instead, with a deliberately slack fallback timer
 that must only ever fire when there was no transition to wait for.
 
+**A daily window cannot be pinned to a fixed epoch.** The obvious way to build the morning
+window is to make a one-track schedule once and reuse it. It is wrong, and it fails slowly
+enough to look fine for a week. A day is not a whole number of plays — 86400 leaves a
+remainder of 120 against a 1438-second track — so a fixed epoch starts the song two minutes
+further into itself every day, and inside a month 06:00 lands in the middle of the track
+instead of at the top of it. `dailyWindowAt` derives the window's start from the current time
+on every call, so there is nothing left that *can* drift.
+
+**Both boundary timers need the window's edge, not just the track's end.** `tuneToLive` and
+`checkDrift` each arm the same one-shot timer, and each has its own copy of the expression.
+Arm on the track's remaining time alone and the last play of the morning — which begins
+around 08:47 — sets its timer for 09:11 and runs twelve minutes past the end of the window.
+`untilNextChange` takes the nearer of the two, and it has to be used in both places; the
+`checkDrift` one is the copy a phone waking from sleep actually goes through.
+
 **Pausing is not pausing.** The broadcast keeps running while you are paused — the title and
 the progress bar keep moving, and pressing play rejoins wherever the station has got to.
 A tab backgrounded for an hour rejoins live rather than resuming mid-bar.
@@ -145,6 +160,37 @@ disagree.
 
 The API key is only ever used by that script on your machine. The deployed site reads
 `data/tracks.json` and nothing else, and `.env` is gitignored.
+
+### The morning window
+
+One song can take over the station between two times of day, every day. It is configured
+by a `daily` block in `data/tracks.json`:
+
+```json
+"daily": {
+  "from": "06:00",
+  "to": "09:00",
+  "zone": "+05:45",
+  "track": { "id": "mvBLSJWk6HE", "title": "…", "artist": "…", "duration": 1438 }
+}
+```
+
+Between those hours the ordinary loop is set aside and that one track plays on repeat, from
+its beginning at `from` and cut wherever it happens to be at `to`. At 23:58 against a
+three-hour window that is seven full plays and twelve minutes of an eighth. Outside the
+window the loop plays and the track never appears in it — which is why it lives here and
+**not** in `data/ids.txt`. The generator refuses to run if you put it in both.
+
+It is one broadcast, not a regional variation: the window is an appointment in absolute time
+that happens to be written in Nepali hours, so 06:00 +05:45 is 00:15 UTC for everybody. A
+listener in London hears it at 01:15 their time. There is no geolocation anywhere in the
+station and this does not add any.
+
+`zone` is a **fixed offset, not an IANA name**, and that is a real limitation rather than a
+shortcut. It works here because Nepal is the easy case: `zdump -v Asia/Kathmandu` shows three
+offsets in all of recorded history, `isdst=0` on every one, and no transition since 1986.
+A window written in a zone that observes daylight saving would silently shift by an hour
+twice a year.
 
 ### Tracks that will not play
 

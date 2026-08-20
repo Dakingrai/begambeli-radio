@@ -25,5 +25,16 @@
       "artist": "When Chai Met Toast",
       "duration": 305
     }
-  ]
+  ],
+  "daily": {
+    "from": "06:00",
+    "to": "09:00",
+    "zone": "+05:45",
+    "track": {
+      "id": "mvBLSJWk6HE",
+      "title": "Om Mani Padme Hum",
+      "artist": "Essence of Universe",
+      "duration": 1438
+    }
+  }
 }

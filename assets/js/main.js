@@ -9,6 +9,8 @@
 
 import {
   makeSchedule,
+  makeDaily,
+  dailyWindowAt,
   positionAt,
   loopOffsetAt,
   nextPlayable,
@@ -52,6 +54,10 @@ const SETTLE_TOLERANCE = 1; // tighter, once, to absorb buffering on load
 const BOUNDARY_LEAD_MS = 350; // land just past a track change, not just before
 const TICK_MS = 1000;
 
+/* Player states in which the video we want is already loaded, so repositioning
+   it is a seek rather than a fresh load. */
+const RESEEKABLE = new Set([STATE.PLAYING, STATE.BUFFERING, STATE.PAUSED, STATE.ENDED]);
+
 /* Built once. Constructing an Intl formatter is expensive and paint() runs
    every second. An empty locale list means "whatever the browser is set to",
    which is what decides 11:07 PM against 23:07. */
@@ -61,10 +67,15 @@ const DEFAULT_VOLUME = 70;
 
 const el = {};
 const state = {
-  schedule: null,
+  schedule: null, // whichever schedule is in force this second
+  regular: null, // the ordinary loop, from tracks.json
+  daily: null, // the morning window, or null if there is not one
+  morning: null, // the one-track schedule for today's window, cached
+  chantBlocked: false, // the window's track will not play for this listener
   skewMs: 0,
   player: null,
-  loadedIndex: -1, // what is actually in the player
+  loadedIndex: -1, // what is actually in the player, indexed into state.schedule
+  loadedId: null, // and its video id, which survives a change of schedule
   substitute: false, // are we off-schedule because a track would not play
   unavailable: new Set(),
   live: false, // is the listener tuned in (not paused)
@@ -112,11 +123,74 @@ async function measureSkew() {
   }
 }
 
+/* ------------------------------------------------- the morning window -- */
+
+/**
+ * Which schedule is in force at `nowSeconds`?
+ *
+ * The window is served by a genuine one-track schedule rather than by a flag
+ * threaded through the player, and that is the whole reason this feature is
+ * small. Every consumer already goes through `positionAt(state.schedule, ...)`,
+ * so the rail, the pill, the Media Session, the boundary timer and the drift
+ * correction all keep working untouched — and `loadedIndex` stays an honest
+ * index into `schedule.tracks` instead of becoming a lie for three hours.
+ */
+function scheduleFor(nowSeconds) {
+  const window = dailyWindowAt(state.daily, nowSeconds);
+  if (!window?.inside || state.chantBlocked) return state.regular;
+
+  // Keyed on the instant the window opened rather than built once, because
+  // each morning needs its own epoch — see dailyWindowAt on why a fixed one
+  // would walk the song forwards a couple of minutes a day.
+  if (state.morning?.epoch !== window.start) {
+    state.morning = makeSchedule({ epoch: window.start, tracks: [state.daily.track] });
+  }
+  return state.morning;
+}
+
+/**
+ * Re-point `state.schedule`. Returns true when it changed, which means the
+ * player is now on the wrong song and the caller has to retune.
+ */
+function syncSchedule(nowSeconds) {
+  const wanted = scheduleFor(nowSeconds);
+  if (wanted === state.schedule) return false;
+
+  state.schedule = wanted;
+  // `loadedIndex` only means anything against the schedule it was written for.
+  // Carrying a 3 from the four-track loop into a one-track window makes
+  // `schedule.tracks[3]` undefined and takes the every-second paint down with
+  // it; carrying a 0 is worse, because it is a valid index and the pill would
+  // quietly name the wrong song.
+  state.loadedIndex = -1;
+  state.substitute = false;
+  return true;
+}
+
+/**
+ * Seconds until the next thing that changes what should be playing: the end of
+ * the current track, or the edge of the window, whichever comes first.
+ *
+ * Without the window half of this, the last play of the morning — which starts
+ * around 08:47 — would arm its timer for 09:11 and run twelve minutes past the
+ * end of the window.
+ */
+function untilNextChange(pos, nowSeconds) {
+  const window = dailyWindowAt(state.daily, nowSeconds);
+  const edge = window && !state.chantBlocked ? window.until : Infinity;
+  return Math.min(Math.max(0, pos.remaining), edge);
+}
+
 /* ------------------------------------------------------------- playback -- */
 
 /** Point the player at whatever the station is playing this second. */
 function tuneToLive() {
-  const pos = positionAt(state.schedule, now());
+  // One reading of the clock for both, so the schedule cannot turn over
+  // between choosing it and asking it where we are.
+  const at = now();
+  syncSchedule(at);
+
+  const pos = positionAt(state.schedule, at);
   let index = pos.index;
   let offset = pos.offset;
 
@@ -144,16 +218,31 @@ function tuneToLive() {
   clearTimeout(boundaryTimer);
   boundaryTimer = setTimeout(() => {
     if (state.live) tuneToLive();
-  }, Math.max(0, pos.remaining) * 1000 + BOUNDARY_LEAD_MS);
+  }, untilNextChange(pos, at) * 1000 + BOUNDARY_LEAD_MS);
 
   loadIndex(index, offset);
 }
 
 function loadIndex(index, offset) {
   const track = state.schedule.tracks[index];
-  const changed = index !== state.loadedIndex;
+  const changed = track.id !== state.loadedId;
 
   state.loadedIndex = index;
+  state.loadedId = track.id;
+
+  // Re-cueing the video that is already in the player is not free: loadVideoById
+  // tears it down and comes back through BUFFERING, which is an audible gap and
+  // a black flash. Unavoidable when the song genuinely changes — but the morning
+  // window asks for the same id every twenty-four minutes, and a seek is instant.
+  if (!changed && RESEEKABLE.has(state.player.state())) {
+    state.player.seek(offset);
+    // A video that ended, or that a frozen tab paused, needs telling to start
+    // again; seeking on its own leaves it sitting where it is.
+    if (state.live) state.player.play();
+    paint();
+    return;
+  }
+
   state.settled = false;
   state.loading = true;
   state.player.load(track.id, offset);
@@ -200,7 +289,10 @@ function settle() {
 function checkDrift() {
   if (!state.live || !state.player) return;
 
-  const pos = positionAt(state.schedule, now());
+  const at = now();
+  syncSchedule(at);
+
+  const pos = positionAt(state.schedule, at);
 
   if (state.unavailable.has(pos.track.id)) return; // the substitute stands
 
@@ -231,7 +323,7 @@ function checkDrift() {
   clearTimeout(boundaryTimer);
   boundaryTimer = setTimeout(() => {
     if (state.live) tuneToLive();
-  }, Math.max(0, pos.remaining) * 1000 + BOUNDARY_LEAD_MS);
+  }, untilNextChange(pos, at) * 1000 + BOUNDARY_LEAD_MS);
 }
 
 /**
@@ -296,20 +388,44 @@ function goDark(message) {
 }
 
 function handlePlayerError(code) {
-  const track = state.schedule.tracks[state.loadedIndex];
+  // Identify what failed by its id rather than by `loadedIndex`. The iframe
+  // delivers these late — minutes late, sometimes — and the schedule may have
+  // turned over since the load that failed, which would leave the index
+  // pointing at a different song or at nothing at all.
+  const id = state.loadedId;
+  const track =
+    state.schedule.tracks.find((t) => t.id === id) ??
+    (state.daily?.track.id === id ? state.daily.track : null);
   if (!track) return;
   state.loading = false;
+
+  const reason = ERROR_REASON[code] ?? 'the player refused it';
+
+  // The window is a single track, so "everything is unavailable" would be true
+  // the instant it failed — and going dark is permanent, it stops the drift
+  // timer with nothing left to restart it. Stand the window down for this
+  // listener instead and give them the ordinary loop: recoverable, and some
+  // music beats none. Deliberately not added to `unavailable`, which is
+  // counted against the loop and must stay honest.
+  if (state.daily && id === state.daily.track.id) {
+    state.chantBlocked = true;
+    setNotice(`${track.title} won't play here — ${reason}. Playing the usual loop instead.`);
+    if (state.live) tuneToLive();
+    return;
+  }
 
   // Mark it and move on. Never retry the same id — a permanently broken track
   // would spin forever. Each error rules out exactly one track, so this is
   // bounded by the length of the playlist.
   state.unavailable.add(track.id);
   setNotice(
-    `${track.title} won't play here — ${ERROR_REASON[code] ?? 'the player refused it'}. ` +
+    `${track.title} won't play here — ${reason}. ` +
       'Moving on; the schedule picks us back up at the next track.',
   );
 
-  if (state.unavailable.size >= state.schedule.tracks.length) {
+  // Against the loop, never against whatever schedule happens to be in force —
+  // a one-track window would otherwise report exhaustion on the first failure.
+  if (state.unavailable.size >= state.regular.tracks.length) {
     goDark('Nothing in the playlist will play in this browser.');
     return;
   }
@@ -339,8 +455,24 @@ function handleStateChange(playerState) {
     if (state.live) goOffAir();
     setMediaSessionState('paused');
   } else if (playerState === STATE.ENDED) {
-    // Only reachable when a substitute runs out before the schedule moves on.
-    if (state.live) tuneToLive();
+    if (!state.live) return;
+
+    // Two ways to arrive here. The original: a substitute ran out before the
+    // schedule moved on. The other came with the morning window — a single
+    // track on repeat ends every time round, a few hundred milliseconds before
+    // the boundary timer is due to fire.
+    //
+    // Retuning on the raw position in that state asks for the last fraction of
+    // a second of the song, which ends at once and lands back here: a reload
+    // loop at every repeat. When the schedule holds one track there is only one
+    // place to go, so go back to the top. The clock stays in charge — the
+    // boundary timer follows a moment later and seeks to the exact offset.
+    if (state.schedule.tracks.length === 1 && !state.substitute) {
+      state.player.seek(0);
+      state.player.play();
+      return;
+    }
+    tuneToLive();
   }
 }
 
@@ -356,6 +488,20 @@ function setText(node, value) {
  * is in the player. Off air they are hearing nothing, so we show what the
  * station is putting out instead — that is the point of the whole thing.
  */
+/**
+ * The one-second tick.
+ *
+ * `paint` is a pure read of `state`, and it stays that way: anything that
+ * changes what *should* be playing happens here, before it. Doing the swap
+ * inside paint would leave the pill naming the new song while the player was
+ * still on the old one — for 350ms in a foreground tab, and for as long as a
+ * minute in a throttled background one, where this timer is all that runs.
+ */
+function onTick() {
+  if (syncSchedule(now()) && state.live) tuneToLive();
+  paint();
+}
+
 function paint() {
   const pos = positionAt(state.schedule, now());
   const showing = state.live && state.loadedIndex >= 0 ? state.loadedIndex : pos.index;
@@ -695,7 +841,10 @@ async function start() {
     throw err;
   });
 
-  state.schedule = makeSchedule(data);
+  state.regular = makeSchedule(data);
+  state.daily = makeDaily(data);
+  state.schedule = state.regular;
+  syncSchedule(now()); // open the page mid-window and it is already right
   buildRail();
   updateToggle();
 
@@ -703,7 +852,7 @@ async function start() {
   // the loop, and the sleeve — all of it from the schedule, none of it needing
   // a player to exist.
   paint();
-  tickTimer = setInterval(paint, TICK_MS);
+  tickTimer = setInterval(onTick, TICK_MS);
 
   el.toggle.addEventListener('click', () => {
     if (!state.player) return void startListening();

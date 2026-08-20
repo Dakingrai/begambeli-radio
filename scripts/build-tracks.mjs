@@ -404,6 +404,27 @@ async function main() {
       warn(`${id} ("${item.snippet?.title}") cannot be embedded — it will fail for listeners.`);
     }
 
+    // The same class of silent failure, and the more likely one. Auto-generated
+    // Art Tracks (the "<artist> - Topic" uploads) are routinely licensed for a
+    // handful of territories, and they look completely healthy from anywhere on
+    // the list — including, most of the time, from here. Everyone else gets a
+    // grey box. The station is one loop for everybody, so a track that is only
+    // cleared for eight countries is a hole in the broadcast for the rest.
+    const region = item.contentDetails?.regionRestriction;
+    if (region?.allowed) {
+      warn(
+        `${id} ("${item.snippet?.title}") plays in only ${region.allowed.length} ` +
+          `countries (${region.allowed.join(', ')}). Everywhere else sees an error. ` +
+          'This is the usual shape of an Art Track — look for the same recording on ' +
+          "the artist's own channel.",
+      );
+    } else if (region?.blocked?.length) {
+      warn(
+        `${id} ("${item.snippet?.title}") is blocked in ${region.blocked.length} ` +
+          `countries (${region.blocked.join(', ')}).`,
+      );
+    }
+
     const held = existing.get(id);
     const keepHuman = held && !REFRESH_TITLES;
 

@@ -8,7 +8,7 @@
 # Order matters: this is the loop. Appending to the end is safe. Reordering or
 # removing shifts every listener's position the moment they reload.
 
-xrfpgoItkSY   # Movement
-enIzF9bIh5Q   # Talk
+OSye8OO5TkM   # Movement
+eCCtiK7KlSo   # Talk
 1ZsgY_C3Ttc   # Maya Pheri
 z-rYM4D0CO0   # When We Feel Young

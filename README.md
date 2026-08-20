@@ -154,6 +154,15 @@ and warns about those, which is worth heeding — the alternative is finding out
 production. At runtime the station marks a failed track unavailable, says what happened,
 plays the next one that works, and rejoins the schedule at the following boundary.
 
+**Region locking is the same trap, and it is easier to walk into.** An auto-generated Art
+Track — the `<artist> - Topic` upload YouTube makes from a label's audio — is often licensed
+for only a handful of territories. It plays perfectly on your machine if you happen to be on
+the list, and shows a grey box to everyone who is not. The station is one loop for everybody,
+so that is not a track someone misses, it is a hole in the broadcast. The generator warns
+when `contentDetails.regionRestriction` names an `allowed` list. The fix is almost always the
+same recording on the artist's own channel, which is licensed worldwide: prefer those over
+`- Topic` results even when the Topic one looks like the cleaner "just the audio" choice.
+
 ## Design
 
 "Peek-a-boo Panda", shan-shui, recreated from `design_handoff_panda_radio` v2. A Chinese

@@ -133,7 +133,7 @@ async function measureSkew() {
  * small. Every consumer already goes through `positionAt(state.schedule, ...)`,
  * so the rail, the pill, the Media Session, the boundary timer and the drift
  * correction all keep working untouched — and `loadedIndex` stays an honest
- * index into `schedule.tracks` instead of becoming a lie for three hours.
+ * index into `schedule.tracks` instead of becoming a lie for five hours.
  */
 function scheduleFor(nowSeconds) {
   const window = dailyWindowAt(state.daily, nowSeconds);
@@ -172,7 +172,7 @@ function syncSchedule(nowSeconds) {
  * the current track, or the edge of the window, whichever comes first.
  *
  * Without the window half of this, the last play of the morning — which starts
- * around 08:47 — would arm its timer for 09:11 and run twelve minutes past the
+ * around 10:47 — would arm its timer for 11:11 and run twelve minutes past the
  * end of the window.
  */
 function untilNextChange(pos, nowSeconds) {

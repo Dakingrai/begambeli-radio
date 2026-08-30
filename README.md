@@ -77,7 +77,7 @@ on every call, so there is nothing left that *can* drift.
 **Both boundary timers need the window's edge, not just the track's end.** `tuneToLive` and
 `checkDrift` each arm the same one-shot timer, and each has its own copy of the expression.
 Arm on the track's remaining time alone and the last play of the morning — which begins
-around 08:47 — sets its timer for 09:11 and runs twelve minutes past the end of the window.
+around 10:47 — sets its timer for 11:11 and runs twelve minutes past the end of the window.
 `untilNextChange` takes the nearer of the two, and it has to be used in both places; the
 `checkDrift` one is the copy a phone waking from sleep actually goes through.
 
@@ -169,7 +169,7 @@ by a `daily` block in `data/tracks.json`:
 ```json
 "daily": {
   "from": "06:00",
-  "to": "09:00",
+  "to": "11:00",
   "zone": "+05:45",
   "track": { "id": "mvBLSJWk6HE", "title": "…", "artist": "…", "duration": 1438 }
 }
@@ -177,7 +177,7 @@ by a `daily` block in `data/tracks.json`:
 
 Between those hours the ordinary loop is set aside and that one track plays on repeat, from
 its beginning at `from` and cut wherever it happens to be at `to`. At 23:58 against a
-three-hour window that is seven full plays and twelve minutes of an eighth. Outside the
+five-hour window that is twelve full plays and twelve minutes of a thirteenth. Outside the
 window the loop plays and the track never appears in it — which is why it lives here and
 **not** in `data/ids.txt`. The generator refuses to run if you put it in both.
 

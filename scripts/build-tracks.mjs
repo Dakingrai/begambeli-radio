@@ -311,6 +311,38 @@ async function refreshDaily(daily, item) {
   );
 }
 
+/**
+ * The same for the occasion's playlist: real durations, covers, and the
+ * availability warnings the loop tracks get. Titles and artists are left alone
+ * for the same reason as the daily window's — they are written by hand.
+ */
+async function refreshOccasion(occasion, metadata) {
+  for (const track of occasion.tracks) {
+    const item = metadata.get(track.id);
+
+    if (!item) {
+      warn(`the occasion's track ${track.id} returned nothing — leaving it as it stands.`);
+      continue;
+    }
+
+    warnAboutAvailability(track.id, item);
+
+    const duration = parseIsoDuration(item.contentDetails?.duration);
+    if (!duration) {
+      warn(`the occasion's track ${track.id} has no usable duration — leaving it as it stands.`);
+    } else if (duration !== track.duration) {
+      console.log(`  ${track.id} duration corrected: ${track.duration}s -> ${duration}s`);
+      track.duration = duration;
+    }
+
+    const cover = await downloadCover(track.id);
+    console.log(
+      `  ${track.id}  ${String(track.duration).padStart(4)}s  ${cover ?? 'no cover'}  ` +
+        `${track.title}  (occasion ${occasion.on} ${occasion.from} ${occasion.zone})`,
+    );
+  }
+}
+
 /* --------------------------------------------------------------- covers -- */
 
 const exists = (path) =>
@@ -434,19 +466,40 @@ async function main() {
   }
   const existing = new Map((previous.tracks ?? []).map((t) => [t.id, t]));
 
-  // The daily window is carried through untouched. It is hand-written rather
-  // than imported, and rebuilding this file from scratch would otherwise delete
-  // it silently — which is exactly the kind of loss nobody notices until 6am.
+  // The daily window and the occasion are carried through untouched. Both are
+  // hand-written rather than imported, and rebuilding this file from scratch
+  // would otherwise delete them silently — which is exactly the kind of loss
+  // nobody notices until 6am, or until a birthday has already gone by.
   const daily = previous.daily ?? null;
   const dailyId = daily?.track?.id ?? null;
+  const occasion = previous.occasion ?? null;
+  const occasionIds = (occasion?.tracks ?? []).map((t) => t.id);
 
-  // The one input that would break the promise the window makes. Its whole
-  // point is that this song plays in the morning and at no other hour; putting
-  // it in ids.txt would splice it into the ordinary loop as well.
+  // The one input that would break the promise a window makes. Their whole
+  // point is that these songs play in their window and at no other hour;
+  // putting one in ids.txt would splice it into the ordinary loop as well.
   if (dailyId && ids.includes(dailyId)) {
     console.error(
       `\n${dailyId} is the daily window's track and must not also be in data/ids.txt — ` +
         'it would then play all day as well as in the window. Remove it from ids.txt.\n',
+    );
+    process.exit(1);
+  }
+
+  const strayOccasion = occasionIds.find((id) => ids.includes(id));
+  if (strayOccasion) {
+    console.error(
+      `\n${strayOccasion} is one of the occasion's tracks and must not also be in ` +
+        'data/ids.txt — it would then play all year as well as on the day. ' +
+        'Remove it from ids.txt.\n',
+    );
+    process.exit(1);
+  }
+
+  if (dailyId && occasionIds.includes(dailyId)) {
+    console.error(
+      `\n${dailyId} is both the daily window's track and one of the occasion's. ` +
+        'Pick one; a track cannot be two exceptions at once.\n',
     );
     process.exit(1);
   }
@@ -460,7 +513,10 @@ async function main() {
   // The daily track is fetched alongside the loop so it gets the same duration
   // refresh, the same cover and the same availability warnings, without ever
   // becoming part of the loop itself.
-  const metadata = await fetchMetadata(dailyId ? [...ids, dailyId] : ids, key);
+  const metadata = await fetchMetadata(
+    [...ids, ...(dailyId ? [dailyId] : []), ...occasionIds],
+    key,
+  );
 
   const tracks = [];
   for (const id of ids) {
@@ -527,12 +583,17 @@ async function main() {
   if (playlistId) await writeIdsFile(playlistId, tracks);
 
   if (daily) await refreshDaily(daily, metadata.get(dailyId));
+  if (occasion) await refreshOccasion(occasion, metadata);
 
-  await writeFile(
-    TRACKS_FILE,
-    `${JSON.stringify(daily ? { epoch, tracks, daily } : { epoch, tracks }, null, 2)}\n`,
-    'utf8',
-  );
+  // Assembled a key at a time rather than picked out of a ternary: the shape
+  // that used to be written here named every block it knew about, so a block
+  // added to tracks.json by hand and not to this line was deleted on the next
+  // run without a word.
+  const output = { epoch, tracks };
+  if (daily) output.daily = daily;
+  if (occasion) output.occasion = occasion;
+
+  await writeFile(TRACKS_FILE, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
 
   const total = tracks.reduce((sum, t) => sum + t.duration, 0);
   const mins = Math.floor(total / 60);

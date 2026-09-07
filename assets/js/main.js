@@ -11,6 +11,8 @@ import {
   makeSchedule,
   makeDaily,
   dailyWindowAt,
+  makeOccasion,
+  occasionWindowAt,
   positionAt,
   loopOffsetAt,
   nextPlayable,
@@ -48,6 +50,23 @@ const QUOTES = [
   'Same difference.',
 ];
 
+/**
+ * The same idea, for the day the station is throwing a party. Swapped in
+ * wholesale while the occasion window is open, so the line under the name is
+ * never at odds with the hat on the panda.
+ */
+const BIRTHDAY_QUOTES = [
+  'Many happy returns.',
+  'Older, no wiser.',
+  'Same age, new number.',
+  'Growing up, staying small.',
+  'Younger than tomorrow.',
+  'Candles out, lights on.',
+  'One more lap.',
+  'Another first.',
+];
+
+const DAY = 86400;
 const DRIFT_INTERVAL_MS = 30_000; // how often to check we are still in step
 const DRIFT_TOLERANCE = 2; // seconds of slip we will live with
 const SETTLE_TOLERANCE = 1; // tighter, once, to absorb buffering on load
@@ -72,6 +91,10 @@ const state = {
   daily: null, // the morning window, or null if there is not one
   morning: null, // the one-track schedule for today's window, cached
   chantBlocked: false, // the window's track will not play for this listener
+  occasion: null, // the dated window — a birthday — or null if there is not one
+  party: null, // the schedule for this year's occasion, cached
+  occasionBlocked: false, // none of the occasion's tracks will play here
+  partyOn: false, // is the occasion in force this second
   skewMs: 0,
   player: null,
   loadedIndex: -1, // what is actually in the player, indexed into state.schedule
@@ -123,19 +146,41 @@ async function measureSkew() {
   }
 }
 
-/* ------------------------------------------------- the morning window -- */
+/* -------------------------------------------------------- the windows -- */
+
+/** The occasion, if it is on and this listener can hear it. */
+function partyWindow(nowSeconds) {
+  if (state.occasionBlocked) return null;
+  const window = occasionWindowAt(state.occasion, nowSeconds);
+  return window?.inside ? window : null;
+}
 
 /**
  * Which schedule is in force at `nowSeconds`?
  *
- * The window is served by a genuine one-track schedule rather than by a flag
- * threaded through the player, and that is the whole reason this feature is
- * small. Every consumer already goes through `positionAt(state.schedule, ...)`,
- * so the rail, the pill, the Media Session, the boundary timer and the drift
- * correction all keep working untouched — and `loadedIndex` stays an honest
- * index into `schedule.tracks` instead of becoming a lie for five hours.
+ * Each window is served by a genuine schedule of its own — one track for the
+ * morning, a playlist for an occasion — rather than by a flag threaded through
+ * the player, and that is the whole reason these stay small. Every consumer
+ * already goes through `positionAt(state.schedule, ...)`, so the rail, the
+ * pill, the Media Session, the boundary timer and the drift correction all keep
+ * working untouched, and `loadedIndex` stays an honest index into
+ * `schedule.tracks` instead of becoming a lie for hours at a time.
  */
 function scheduleFor(nowSeconds) {
+  // The occasion outranks the morning window, and the fall-through below is
+  // deliberate: an occasion that has been stood down for this listener leaves
+  // the chant in place at seven in the morning rather than dropping them
+  // straight to the loop.
+  const party = partyWindow(nowSeconds);
+  if (party) {
+    // Keyed on the opening instant for the same reason the morning window is —
+    // a fixed epoch would walk the playlist forwards year after year.
+    if (state.party?.epoch !== party.start) {
+      state.party = makeSchedule({ epoch: party.start, tracks: state.occasion.tracks });
+    }
+    return state.party;
+  }
+
   const window = dailyWindowAt(state.daily, nowSeconds);
   if (!window?.inside || state.chantBlocked) return state.regular;
 
@@ -176,9 +221,31 @@ function syncSchedule(nowSeconds) {
  * end of the window.
  */
 function untilNextChange(pos, nowSeconds) {
-  const window = dailyWindowAt(state.daily, nowSeconds);
-  const edge = window && !state.chantBlocked ? window.until : Infinity;
-  return Math.min(Math.max(0, pos.remaining), edge);
+  const edges = [Math.max(0, pos.remaining)];
+
+  // Shaped like scheduleFor rather than as a flat minimum over every window.
+  // While the occasion is in force the morning window's edges cannot change
+  // what is playing — on the 9th of September the chant's five hours sit
+  // entirely inside the party — so waking for them would be a retune to the
+  // song already on.
+  const party = partyWindow(nowSeconds);
+  if (party) {
+    edges.push(party.until);
+  } else {
+    const window = dailyWindowAt(state.daily, nowSeconds);
+    if (window && !state.chantBlocked) edges.push(window.until);
+
+    const occasion = state.occasionBlocked
+      ? null
+      : occasionWindowAt(state.occasion, nowSeconds);
+    if (occasion) edges.push(occasion.until);
+  }
+
+  // A closed occasion is up to a year off, and setTimeout counts milliseconds
+  // in a signed 32-bit integer: a delay past about 24.85 days does not wait, it
+  // fires at once, and the boundary timer would spin. Waking once a day for
+  // nothing is free by comparison.
+  return Math.min(...edges, DAY);
 }
 
 /* ------------------------------------------------------------- playback -- */
@@ -387,17 +454,34 @@ function goDark(message) {
   updateToggle();
 }
 
+/**
+ * Find a track by its id across every schedule the station can be running,
+ * not just the one in force. The iframe delivers errors minutes late and the
+ * schedule may well have turned over since the load that failed — most sharply
+ * at the close of an occasion, where the id that failed belongs to a playlist
+ * that is now eleven months away.
+ */
+function trackById(id) {
+  return (
+    state.regular.tracks.find((t) => t.id === id) ??
+    (state.daily?.track.id === id ? state.daily.track : null) ??
+    state.occasion?.tracks.find((t) => t.id === id) ??
+    null
+  );
+}
+
 function handlePlayerError(code) {
   // Identify what failed by its id rather than by `loadedIndex`. The iframe
   // delivers these late — minutes late, sometimes — and the schedule may have
   // turned over since the load that failed, which would leave the index
   // pointing at a different song or at nothing at all.
   const id = state.loadedId;
-  const track =
-    state.schedule.tracks.find((t) => t.id === id) ??
-    (state.daily?.track.id === id ? state.daily.track : null);
-  if (!track) return;
+  const track = trackById(id);
+  // Before the bail-out, not after: an error we cannot place must not leave
+  // `loading` latched, or the next pause is read as the swap that never came
+  // and the listener's own press of the button stops being heard.
   state.loading = false;
+  if (!track) return;
 
   const reason = ERROR_REASON[code] ?? 'the player refused it';
 
@@ -414,6 +498,27 @@ function handlePlayerError(code) {
     return;
   }
 
+  // The occasion's tracks do go into `unavailable`, unlike the chant's: there
+  // are several of them, so ruling one out is what lets tuneToLive step over it
+  // and keep the party going. Only when every one of them has failed is the
+  // occasion stood down, and then the listener falls back through scheduleFor —
+  // to the chant if it is that hour, otherwise to the loop.
+  if (state.occasion?.tracks.some((t) => t.id === id)) {
+    state.unavailable.add(track.id);
+
+    if (state.occasion.tracks.every((t) => state.unavailable.has(t.id))) {
+      state.occasionBlocked = true;
+      setNotice(
+        `The birthday playlist won't play here — ${reason}. Playing the usual loop instead.`,
+      );
+    } else {
+      setNotice(`${track.title} won't play here — ${reason}. Moving on.`);
+    }
+
+    if (state.live) tuneToLive();
+    return;
+  }
+
   // Mark it and move on. Never retry the same id — a permanently broken track
   // would spin forever. Each error rules out exactly one track, so this is
   // bounded by the length of the playlist.
@@ -425,7 +530,12 @@ function handlePlayerError(code) {
 
   // Against the loop, never against whatever schedule happens to be in force —
   // a one-track window would otherwise report exhaustion on the first failure.
-  if (state.unavailable.size >= state.regular.tracks.length) {
+  // Counted by looking the loop's own ids up rather than by the size of the
+  // set, which also holds refused occasion tracks that are no part of it: five
+  // dead birthday songs and eleven dead loop songs is sixteen, and going dark
+  // on that would silence a station with four working tracks left.
+  const loopOut = state.regular.tracks.filter((t) => state.unavailable.has(t.id)).length;
+  if (loopOut >= state.regular.tracks.length) {
     goDark('Nothing in the playlist will play in this browser.');
     return;
   }
@@ -502,7 +612,28 @@ function onTick() {
   paint();
 }
 
+/**
+ * Dress the page for the occasion, or undress it. The attribute is the only
+ * hook the stylesheet needs — everything birthday-shaped is already in the
+ * markup and inert without it — and it is the same predicate that chooses the
+ * playlist, so the hat and the copy cannot disagree with what is playing.
+ *
+ * Written only when it changes, for the reason setText is: assigning to
+ * documentElement.dataset invalidates style for the whole document, and this
+ * runs every second over a scene of live animations.
+ */
+function paintOccasion(nowSeconds) {
+  state.partyOn = Boolean(partyWindow(nowSeconds));
+
+  const theme = state.partyOn ? state.occasion.theme : undefined;
+  const root = document.documentElement;
+  if (root.dataset.occasion === theme) return;
+  if (theme) root.dataset.occasion = theme;
+  else delete root.dataset.occasion;
+}
+
 function paint() {
+  paintOccasion(now());
   const pos = positionAt(state.schedule, now());
   const showing = state.live && state.loadedIndex >= 0 ? state.loadedIndex : pos.index;
   const track = state.schedule.tracks[showing];
@@ -536,7 +667,8 @@ function paintLocalTime() {
  * only does anything when the answer changes.
  */
 function paintQuote() {
-  const next = QUOTES[Math.floor(now() / QUOTE_SECONDS) % QUOTES.length];
+  const lines = state.partyOn ? BIRTHDAY_QUOTES : QUOTES;
+  const next = lines[Math.floor(now() / QUOTE_SECONDS) % lines.length];
   if (!next || el.quote.textContent === next) return;
   if (el.quote.classList.contains('is-fading')) return; // a swap is mid-flight
 
@@ -843,6 +975,7 @@ async function start() {
 
   state.regular = makeSchedule(data);
   state.daily = makeDaily(data);
+  state.occasion = makeOccasion(data);
   state.schedule = state.regular;
   syncSchedule(now()); // open the page mid-window and it is already right
   buildRail();

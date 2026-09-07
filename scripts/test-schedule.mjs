@@ -13,6 +13,8 @@ import {
   makeSchedule,
   makeDaily,
   dailyWindowAt,
+  makeOccasion,
+  occasionWindowAt,
   positionAt,
   loopOffsetAt,
   nextPlayable,
@@ -264,11 +266,141 @@ test('a bad window throws rather than misfiring at 6am', () => {
   assert.throws(bad({ track: { duration: 100 } }), /missing a YouTube id/);
 });
 
+console.log('\noccasion window');
+
+/* 23:59 at +05:45 is 18:14 UTC the same day. 1441 minutes carries it to
+   midnight at the end of the following day: 86460 seconds. */
+const PARTY_LEN = 86460;
+const partyOn = (y) => Date.UTC(y, 8, 8, 18, 14) / 1000;
+const PARTY = partyOn(2026);
+const occasion = makeOccasion({
+  occasion: {
+    theme: 'birthday',
+    on: '09-08',
+    from: '23:59',
+    minutes: 1441,
+    zone: '+05:45',
+    tracks: [
+      { id: 'eeeeeeeeeee', title: 'E', artist: 'x', duration: 100 },
+      { id: 'fffffffffff', title: 'F', artist: 'x', duration: 250 },
+    ],
+  },
+});
+
+test('23:59 Nepal on the 8th is 18:14 UTC, and the window runs to the end of the 9th', () => {
+  assert.equal(occasion.month, 9);
+  assert.equal(occasion.day, 8);
+  assert.equal(occasion.length, PARTY_LEN);
+  assert.equal(occasionWindowAt(occasion, PARTY).start, PARTY);
+});
+
+test('the occasion is half-open: it includes its start and excludes its end', () => {
+  assert.equal(occasionWindowAt(occasion, PARTY - 1).inside, false);
+  assert.equal(occasionWindowAt(occasion, PARTY).inside, true);
+  assert.equal(occasionWindowAt(occasion, PARTY + PARTY_LEN - 1).inside, true);
+  assert.equal(occasionWindowAt(occasion, PARTY + PARTY_LEN).inside, false);
+});
+
+test('outside the occasion there is no window to belong to, and it says so', () => {
+  assert.equal(occasionWindowAt(occasion, PARTY - 1).start, null);
+  assert.equal(occasionWindowAt(occasion, PARTY + PARTY_LEN).start, null);
+});
+
+test('the next occasion edge is always in the future, so no timer can spin', () => {
+  for (let t = PARTY - 5; t < PARTY + PARTY_LEN + 5; t += 1) {
+    assert.ok(occasionWindowAt(occasion, t).until > 0, `until was not positive at ${t}`);
+  }
+  assert.equal(occasionWindowAt(occasion, PARTY - 1).until, 1);
+  assert.equal(occasionWindowAt(occasion, PARTY).until, PARTY_LEN);
+  assert.equal(
+    occasionWindowAt(occasion, PARTY + PARTY_LEN).until,
+    partyOn(2027) - (PARTY + PARTY_LEN),
+  );
+});
+
+test('the occasion lands on the date every year, leap years included', () => {
+  // The whole reason this reads a calendar. A fixed period would be a day out
+  // by 2028 and a month out within a lifetime: 2027 to 2028 is 31,622,400s
+  // against 31,536,000s elsewhere.
+  for (let y = 2020; y <= 2050; y++) {
+    const open = partyOn(y);
+    const w = occasionWindowAt(occasion, open);
+    assert.equal(w.inside, true, `${y} was outside its own window`);
+    assert.equal(w.start, open, `${y} drifted`);
+    const party = makeSchedule({ epoch: w.start, tracks: occasion.tracks });
+    assert.equal(positionAt(party, open).offset, 0, `${y} did not start at the top`);
+  }
+  assert.equal(partyOn(2028) - partyOn(2027), 366 * 86400);
+});
+
+test('an occasion that crosses new year is still found on the far side of it', () => {
+  // This is the only thing the year-before candidate exists for. Delete it and
+  // the party stops at midnight on the 31st.
+  const newYear = makeOccasion({
+    occasion: {
+      on: '12-31',
+      from: '23:00',
+      minutes: 120,
+      zone: '+05:45',
+      tracks: [occasion.tracks[0]],
+    },
+  });
+  const open = Date.UTC(2026, 11, 31, 17, 15) / 1000; // 23:00 +05:45
+  const w = occasionWindowAt(newYear, open + 5400); // half past midnight, Nepal
+  assert.equal(w.inside, true);
+  assert.equal(w.start, open);
+  assert.ok(new Date((open + 5400) * 1000).getUTCFullYear() === 2026);
+});
+
+test('a clock set before the epoch does not throw or stall the occasion', () => {
+  for (const t of [-1, -86399, -1767225600]) {
+    const w = occasionWindowAt(occasion, t);
+    assert.ok(w.until > 0, `until was not positive at ${t}`);
+    assert.equal(typeof w.inside, 'boolean');
+  }
+});
+
+test('a playlist with no occasion behaves exactly as it always did', () => {
+  assert.equal(makeOccasion({ epoch: EPOCH, tracks: [] }), null);
+  assert.equal(makeOccasion({ occasion: null }), null);
+  assert.equal(occasionWindowAt(null, PARTY), null);
+});
+
+test('a bad occasion throws rather than turning up on the wrong day', () => {
+  const ok = { on: '09-08', from: '23:59', minutes: 1441, zone: '+05:45', tracks: occasion.tracks };
+  const bad = (over) => () => makeOccasion({ occasion: { ...ok, ...over } });
+  assert.throws(bad({ on: '9-8' }), /occasion\.on/);
+  assert.throws(bad({ on: '13-01' }), /occasion\.on/);
+  // Date.UTC rolls these into the next month without a word, which would move
+  // the occasion rather than fail.
+  assert.throws(bad({ on: '02-29' }), /every year has/);
+  assert.throws(bad({ on: '02-30' }), /every year has/);
+  assert.throws(bad({ on: '04-31' }), /every year has/);
+  assert.throws(bad({ from: '23:6' }), /occasion\.from/);
+  assert.throws(bad({ zone: 'Asia/Kathmandu' }), /fixed offset/);
+  assert.throws(bad({ minutes: 0 }), /occasion\.minutes/);
+  assert.throws(bad({ minutes: 10.5 }), /occasion\.minutes/);
+  assert.throws(bad({ tracks: [] }), /non-empty array/);
+  assert.throws(bad({ tracks: [{ id: 'x', duration: 0 }] }), /bad duration/);
+  assert.throws(bad({ tracks: [{ duration: 100 }] }), /missing a YouTube id/);
+});
+
+test('the occasion swallows the morning window whole, so precedence matters', () => {
+  // 06:00 Nepal on the 9th is inside both. Which one wins is main.js's
+  // business, but the overlap itself is pinned here so nobody "fixes" it.
+  const morningOn9th = Date.UTC(2026, 8, 9, 0, 15) / 1000;
+  assert.equal(dailyWindowAt(daily, morningOn9th).inside, true);
+  assert.equal(occasionWindowAt(occasion, morningOn9th).inside, true);
+  const closeOfChant = Date.UTC(2026, 8, 9, 3, 15) / 1000; // 09:00 Nepal
+  assert.equal(occasionWindowAt(occasion, closeOfChant).inside, true);
+});
+
 console.log('\nreal playlist');
 
 const rawReal = JSON.parse(await readFile(new URL('../data/tracks.json', import.meta.url), 'utf8'));
 const real = makeSchedule(rawReal);
 const realDaily = makeDaily(rawReal);
+const realOccasion = makeOccasion(rawReal);
 
 test('data/tracks.json is a valid schedule', () => {
   assert.ok(real.total > 0);
@@ -309,6 +441,37 @@ test('the daily track never plays at any other hour', () => {
     !real.tracks.some((t) => t.id === realDaily.track.id),
     `${realDaily.track.id} is in the ordinary loop as well as the window`,
   );
+});
+
+test("data/tracks.json's occasion is valid", () => {
+  if (!realOccasion) return void console.log('       no occasion configured');
+  let total = 0;
+  for (const t of realOccasion.tracks) {
+    assert.match(t.id, /^[\w-]{11}$/, `${t.id} is not an 11-character id`);
+    assert.ok(t.title && t.artist, `${t.id} is missing title or artist`);
+    assert.ok(Number.isInteger(t.duration) && t.duration > 0, `${t.id} has a bad duration`);
+    total += t.duration;
+  }
+  const ids = realOccasion.tracks.map((t) => t.id);
+  assert.equal(new Set(ids).size, ids.length, 'the occasion repeats a track');
+  console.log(
+    `       ${rawReal.occasion.theme}, ${rawReal.occasion.on} from ` +
+      `${rawReal.occasion.from} ${rawReal.occasion.zone} for ${rawReal.occasion.minutes}m, ` +
+      `${ids.length} tracks, loop is ${formatClock(total)}, ` +
+      `${Math.floor(realOccasion.length / total)} full times round then cut after ` +
+      `${formatClock(realOccasion.length % total)}`,
+  );
+});
+
+test('the occasion tracks never play on any other day', () => {
+  if (!realOccasion) return;
+  for (const t of realOccasion.tracks) {
+    assert.ok(
+      !real.tracks.some((loop) => loop.id === t.id),
+      `${t.id} is in the ordinary loop as well as the occasion`,
+    );
+    assert.notEqual(t.id, realDaily?.track.id, `${t.id} is the daily track as well`);
+  }
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', with failures above' : ''}`);

@@ -81,6 +81,27 @@ around 10:47 — sets its timer for 11:11 and runs twelve minutes past the end o
 `untilNextChange` takes the nearer of the two, and it has to be used in both places; the
 `checkDrift` one is the copy a phone waking from sleep actually goes through.
 
+**A dated window has to read the calendar; a daily one must not.** These look like the same
+feature and are not. A day is always 86400 seconds, so the morning window is pure
+arithmetic. A year is not: 2027 to 2028 is 31,622,400 seconds against 31,536,000 everywhere
+else, so an occasion pinned to a fixed period slides a day earlier every four years and
+within a lifetime is in the wrong month. `occasionWindowAt` computes the opening instant
+from the calendar year it is asked about, every call.
+
+**An impossible date does not throw, it moves.** `Date.UTC(2025, 1, 29)` is the 1st of
+March, and `Date.UTC(2026, 8, 31)` is the 1st of October — no error, no warning. An
+occasion written as `02-29` would therefore turn up on the wrong day in three years out of
+four. `makeOccasion` validates against a month table with February capped at 28 and refuses
+anything else, which is also what makes its fixed scan of nearby years complete. It builds
+the instant with `setUTCFullYear` rather than `Date.UTC` for a second reason: `Date.UTC`
+maps years 0-99 onto 1900-1999.
+
+**`setTimeout` cannot wait a year.** Its delay is a signed 32-bit millisecond count, so
+anything past about 24.85 days does not wait — it fires immediately, and the boundary timer
+spins. A closed occasion is up to 365 days away, so `untilNextChange` clamps to a day. It
+was only ever safe before because the track's own remaining time always won the comparison,
+which is an accident rather than a guarantee.
+
 **Pausing is not pausing.** The broadcast keeps running while you are paused — the title and
 the progress bar keep moving, and pressing play rejoins wherever the station has got to.
 A tab backgrounded for an hour rejoins live rather than resuming mid-bar.
@@ -191,6 +212,50 @@ shortcut. It works here because Nepal is the easy case: `zdump -v Asia/Kathmandu
 offsets in all of recorded history, `isdst=0` on every one, and no transition since 1986.
 A window written in a zone that observes daylight saving would silently shift by an hour
 twice a year.
+
+### The birthday window
+
+A window anchored to a date rather than to the hours of every day, recurring every year,
+and outranking the morning window where they overlap. It is configured by an `occasion`
+block in `data/tracks.json`:
+
+```json
+"occasion": {
+  "theme": "birthday",
+  "on": "09-08",
+  "from": "23:59",
+  "minutes": 1441,
+  "zone": "+05:45",
+  "tracks": [ … ]
+}
+```
+
+That is 23:59 Nepali time on the 8th of September through to the end of the 9th — a minute
+short of the party, then the whole day. For those 1441 minutes the station plays the
+birthday playlist in its own loop, from the top at the moment the window opens; the
+19:11 loop goes round 75 times and is cut two minutes into the 76th. The five hours of the
+morning chant sit entirely inside it and are set aside for the day.
+
+`minutes` rather than a closing time of day, because an occasion is expected to cross
+midnight — which is exactly the shape the `daily` block refuses. The two are not
+inconsistent, they are different on purpose; do not harmonise them.
+
+Like the chant, these tracks live here and **not** in `data/ids.txt`, and the generator
+refuses to run if you put one in both, or if a track is claimed by both windows at once.
+
+While the window is open the page wears it: `<html>` carries `data-occasion="birthday"`,
+which is the stylesheet's only hook. The panda comes up in a party hat, the falling petals
+become confetti with four more pieces joining them, and the line under the station's name
+changes to a birthday set. Everything birthday-shaped is already in the markup and inert
+without the attribute, so there is no JavaScript building any of it. The taller peek window
+the hat needs is scoped to the attribute deliberately: `scripts/opengraph.html` imports this
+same stylesheet to render the social card, and a global change there would alter the
+committed artwork.
+
+If every track in the occasion is refused by a listener's browser, the occasion is stood
+down **for that listener only** and they fall back through the ordinary order — the chant if
+it is that hour, otherwise the loop. The same escape hatch the chant has, for the same
+reason: going dark is permanent, and some music beats none.
 
 ### Tracks that will not play
 

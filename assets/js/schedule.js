@@ -137,23 +137,23 @@ function mod(value, size) {
   return ((value % size) + size) % size;
 }
 
-function parseTimeOfDay(value, field) {
+function parseTimeOfDay(value, label) {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value ?? ''));
   if (!m) {
-    throw new Error(`Schedule: daily.${field} must look like "06:00", not ${JSON.stringify(value)}.`);
+    throw new Error(`Schedule: ${label} must look like "06:00", not ${JSON.stringify(value)}.`);
   }
   return Number(m[1]) * 3600 + Number(m[2]) * 60;
 }
 
-function parseZoneOffset(value) {
+function parseZoneOffset(value, label) {
   const m = /^([+-])(\d{2}):([0-5]\d)$/.exec(String(value ?? ''));
   if (!m) {
     throw new Error(
-      `Schedule: daily.zone must be a fixed offset like "+05:45", not ${JSON.stringify(value)}.`,
+      `Schedule: ${label} must be a fixed offset like "+05:45", not ${JSON.stringify(value)}.`,
     );
   }
   const seconds = Number(m[2]) * 3600 + Number(m[3]) * 60;
-  if (seconds > 18 * 3600) throw new Error('Schedule: daily.zone is beyond ±18:00.');
+  if (seconds > 18 * 3600) throw new Error(`Schedule: ${label} is beyond ±18:00.`);
   return m[1] === '-' ? -seconds : seconds;
 }
 
@@ -181,9 +181,9 @@ export function makeDaily(data) {
   if (daily === undefined || daily === null) return null;
   if (typeof daily !== 'object') throw new Error('Schedule: `daily` must be an object.');
 
-  const from = parseTimeOfDay(daily.from, 'from');
-  const to = parseTimeOfDay(daily.to, 'to');
-  const zone = parseZoneOffset(daily.zone);
+  const from = parseTimeOfDay(daily.from, 'daily.from');
+  const to = parseTimeOfDay(daily.to, 'daily.to');
+  const zone = parseZoneOffset(daily.zone, 'daily.zone');
 
   if (from >= to) {
     throw new Error(
@@ -231,4 +231,145 @@ export function dailyWindowAt(daily, nowSeconds) {
     start: nowSeconds - since,
     until: inside ? daily.length - since : DAY - since,
   };
+}
+
+/* ------------------------------------------------ the occasion window -- */
+
+/* Days per month, with February capped at 28 deliberately — see parseMonthDay. */
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function parseMonthDay(value) {
+  const m = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(String(value ?? ''));
+  if (!m) {
+    throw new Error(
+      `Schedule: occasion.on must look like "09-08", not ${JSON.stringify(value)}.`,
+    );
+  }
+
+  const month = Number(m[1]);
+  const day = Number(m[2]);
+
+  // A date every year is guaranteed to have, which is what makes the fixed scan
+  // in occasionWindowAt total. The alternative is worse than it sounds: an
+  // impossible date does not throw anywhere in JavaScript, it rolls over
+  // silently — 29 February becomes 1 March in three years out of four, and
+  // 31 April becomes 1 May every year — so a birthday would quietly move.
+  if (day > DAYS_IN_MONTH[month - 1]) {
+    throw new Error(
+      `Schedule: occasion.on is ${JSON.stringify(value)}, which is not a day that ` +
+        'every year has. Pick one that is; the calendar here stops at 28 February.',
+    );
+  }
+
+  return { month, day };
+}
+
+/**
+ * A dated exception, recurring every year: between an instant on one calendar
+ * date and some number of minutes later, a playlist of its own takes over.
+ *
+ * This is the one part of the station that reads a calendar, and it has to.
+ * The daily window can pretend the calendar does not exist because a day is
+ * always 86400 seconds and the arithmetic closes (see makeDaily). A year is
+ * not: 2027 to 2028 is 31,622,400 seconds against 31,536,000 everywhere else,
+ * so an occasion pinned to a fixed epoch and a fixed period would slide a day
+ * earlier every four years and within a lifetime would be in the wrong month.
+ *
+ * The zone is still a fixed offset for the same reason and with the same
+ * limitation as the daily window: right for Nepal, wrong for anywhere that
+ * observes daylight saving.
+ *
+ * `minutes` rather than a closing time of day, because an occasion is expected
+ * to cross midnight — which is exactly the shape makeDaily refuses. Do not
+ * "harmonise" the two blocks; they are different on purpose.
+ *
+ * Returns null when there is no occasion configured.
+ */
+export function makeOccasion(data) {
+  const occasion = data?.occasion;
+  if (occasion === undefined || occasion === null) return null;
+  if (typeof occasion !== 'object') throw new Error('Schedule: `occasion` must be an object.');
+
+  const { month, day } = parseMonthDay(occasion.on);
+  const from = parseTimeOfDay(occasion.from, 'occasion.from');
+  const zone = parseZoneOffset(occasion.zone, 'occasion.zone');
+
+  if (!Number.isInteger(occasion.minutes) || occasion.minutes <= 0) {
+    throw new Error(
+      'Schedule: occasion.minutes must be a positive whole number of minutes, not ' +
+        `${JSON.stringify(occasion.minutes)}.`,
+    );
+  }
+
+  const tracks = occasion.tracks;
+  if (!Array.isArray(tracks) || tracks.length === 0) {
+    throw new Error('Schedule: `occasion.tracks` must be a non-empty array.');
+  }
+  for (const [i, track] of tracks.entries()) {
+    if (!track || typeof track.id !== 'string' || track.id.length === 0) {
+      throw new Error(`Schedule: occasion track ${i} is missing a YouTube id.`);
+    }
+    if (!Number.isFinite(track.duration) || track.duration <= 0) {
+      throw new Error(`Schedule: occasion track ${i} (${track.id}) has a bad duration.`);
+    }
+  }
+
+  return Object.freeze({
+    theme: typeof occasion.theme === 'string' && occasion.theme ? occasion.theme : 'occasion',
+    month,
+    day,
+    from,
+    zone,
+    length: occasion.minutes * 60,
+    tracks,
+  });
+}
+
+/** When does the occasion open in `year`, in Unix seconds? */
+function occasionStart(occasion, year) {
+  // Deliberately not Date.UTC, which maps years 0-99 onto 1900-1999: a listener
+  // whose clock is set to the year 50 would be handed 1950 and land inside a
+  // window that is nowhere near them. setUTCFullYear has no such rule.
+  const at = new Date(0);
+  at.setUTCFullYear(year, occasion.month - 1, occasion.day);
+  at.setUTCHours(0, 0, 0, 0);
+  return at.getTime() / 1000 + occasion.from - occasion.zone;
+}
+
+/**
+ * Is `nowSeconds` inside the occasion, when did the one it belongs to open, and
+ * how long until the next edge?
+ *
+ * Same shape as dailyWindowAt with one difference: `start` is null when we are
+ * outside. A day always has a window slot to belong to, even a closed one; a
+ * year does not, and inventing one would be a lie about a window that is eleven
+ * months away. main.js only reads `start` under `inside`.
+ *
+ * The four candidate years look like more than are needed and are not. Both
+ * ends are load-bearing once the zone offset is taken into account: `year - 1`
+ * carries a window that opened on 31 December and is still running on New
+ * Year's Day, and `year + 2` is the guarantee that the search for the next
+ * opening always finds one — an occasion at 00:00 on 1 January in a zone east
+ * of UTC opens *before* New Year in UTC terms, so `year + 1` can already be
+ * behind us on 31 December.
+ *
+ * `until` is always greater than zero, so it can never arm a zero-length timer.
+ * It can, however, be most of a year: callers arming a setTimeout on it must
+ * clamp, because a delay past 2^31-1 ms fires immediately.
+ */
+export function occasionWindowAt(occasion, nowSeconds) {
+  if (!occasion) return null;
+
+  const year = new Date(nowSeconds * 1000).getUTCFullYear();
+  let next = Infinity;
+
+  for (const y of [year - 1, year, year + 1, year + 2]) {
+    const start = occasionStart(occasion, y);
+    if (nowSeconds >= start && nowSeconds < start + occasion.length) {
+      return { inside: true, start, until: start + occasion.length - nowSeconds };
+    }
+    if (start > nowSeconds && start < next) next = start;
+  }
+
+  return { inside: false, start: null, until: next - nowSeconds };
 }

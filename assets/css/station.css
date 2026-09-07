@@ -94,6 +94,10 @@
   --petal-b: rgba(224, 64, 122, 0.25);
   --petal-glow-a: none;
   --petal-glow-b: none;
+  /* Only an occasion's four extra pieces use these, but they are defined here
+     too so those are never left with an unresolved var. */
+  --confetti-a: rgba(224, 64, 122, 0.35);
+  --confetti-b: rgba(224, 64, 122, 0.25);
 
   /* The corner logo goes negative at night; the hero animal keeps dark
      features and only changes its face. */
@@ -276,6 +280,72 @@
   --disc-ring: var(--d-disc-ring); --spindle: var(--d-spindle);
   --spindle-ring: var(--d-spindle-ring);
   --notice-bg: var(--d-notice-bg); --notice-edge: var(--d-notice-edge);
+}
+
+/* Occasions ---------------------------------------------------------------
+   A dated exception in the schedule brings its own clothes: <html> carries
+   data-occasion while the window is open, and the pieces below — already in
+   the markup, inert without it — come out.
+
+   Deliberately after the two theme blocks and no more specific than them:
+   :root[data-occasion] and :root[data-theme='dark'] both weigh (0,2,0), so it
+   is source order that decides, and these tokens land in light and dark alike.
+   That does mean the confetti gives up the petals' night-time glow, which is
+   why the glows are switched off by hand rather than left to leak. One palette
+   for both modes is worth the two blocks it saves. */
+
+:root[data-occasion='birthday'] {
+  --petal-a: #e0407a; /* magenta, as the petals were */
+  --petal-b: #f7a521; /* gold */
+  --confetti-a: #21b3a6; /* teal */
+  --confetti-b: #7b61ff; /* violet */
+  --petal-glow-a: none;
+  --petal-glow-b: none;
+}
+
+/* Confetti is the petals with the corners taken off. Everything else — the
+   wrapper falling and rotating, the piece inside swaying — is the weather
+   machinery further down, unchanged. A rotating rectangle reads as confetti
+   where a rotating leaf does not. */
+:root[data-occasion='birthday'] .petal > span {
+  border-radius: 2px;
+}
+
+:root[data-occasion='birthday'] .petal--f,
+:root[data-occasion='birthday'] .petal--g,
+:root[data-occasion='birthday'] .petal--h,
+:root[data-occasion='birthday'] .petal--i {
+  display: block;
+}
+
+/* The panda's party hat. A wrapper rather than one shape, because the cone is
+   clipped to a triangle and a clip-path takes its children with it — the
+   pom-pom has to sit outside that. */
+:root[data-occasion='birthday'] .panda__hat {
+  display: block;
+}
+
+/* The window the panda peeks through is 60px and clips: a hat on a raised
+   panda would have its point cut off, and the same hat would still be showing
+   at the bottom when the panda is meant to be gone. So the window grows and
+   the panda ducks further, both only while the occasion is on — scoped, and
+   not merely tidiness: scripts/opengraph.html imports this stylesheet to
+   render the card, and a global height here would change the committed
+   artwork. */
+:root[data-occasion='birthday'] .peekwindow {
+  height: 92px;
+}
+
+/* An animation-name override rather than a custom property inside the
+   keyframes. var() in @keyframes does resolve, but re-resolving it when the
+   property changes underneath a running animation — which is exactly what
+   toggling the attribute does — is the one corner of this with a history of
+   engine disagreement. Four duplicated lines buy certainty.
+
+   The shorthand on .panda sets duration and timing as longhands, so
+   var(--peek-cycle) survives this untouched. */
+:root[data-occasion='birthday'] .panda {
+  animation-name: bgb-peek-party;
 }
 
 *,
@@ -562,6 +632,47 @@ p {
   animation: bgb-sway 7s ease-in-out infinite 4s;
 }
 
+/* Four more for an occasion, hidden the rest of the year. Odd durations and
+   delays like the five above, so nine pieces never queue into a rhythm. */
+.petal--f,
+.petal--g,
+.petal--h,
+.petal--i {
+  display: none;
+}
+
+.petal--f { left: 8%; animation: bgb-fall 18s linear infinite 4s; }
+.petal--f > span {
+  width: 7px;
+  height: 11px;
+  background: var(--confetti-a);
+  animation: bgb-sway 5.2s ease-in-out infinite 1.5s;
+}
+
+.petal--g { left: 38%; animation: bgb-fall 22s linear infinite 11s; }
+.petal--g > span {
+  width: 11px;
+  height: 7px;
+  background: var(--confetti-b);
+  animation: bgb-sway 6.2s ease-in-out infinite 2.5s;
+}
+
+.petal--h { left: 56%; animation: bgb-fall 20s linear infinite 7s; }
+.petal--h > span {
+  width: 8px;
+  height: 12px;
+  background: var(--confetti-a);
+  animation: bgb-sway 5.8s ease-in-out infinite 0.5s;
+}
+
+.petal--i { left: 72%; animation: bgb-fall 24s linear infinite 15s; }
+.petal--i > span {
+  width: 12px;
+  height: 8px;
+  background: var(--confetti-b);
+  animation: bgb-sway 6.8s ease-in-out infinite 3.5s;
+}
+
 /* Header ------------------------------------------------------------------ */
 
 .topbar {
@@ -843,6 +954,40 @@ p {
 
 .panda__ear--l { left: 14px; }
 .panda__ear--r { right: 14px; }
+
+.panda__hat {
+  position: absolute;
+  left: 50%;
+  top: -26px;
+  display: none;
+  width: 34px;
+  height: 34px;
+  transform: translateX(-50%) rotate(-10deg);
+  transform-origin: 50% 100%;
+}
+
+.panda__hat::before {
+  content: '';
+  position: absolute;
+  inset: 5px 0 0;
+  background: repeating-linear-gradient(
+    100deg,
+    var(--accent) 0 7px,
+    var(--flower) 7px 14px
+  );
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.panda__pom {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--flower);
+  transform: translateX(-50%);
+}
 
 .panda__face {
   position: absolute;
@@ -1192,6 +1337,15 @@ input[type='range']::-moz-range-thumb {
   95%, 100% { transform: translateY(100%); }
 }
 
+/* The same peek, ducking 160% instead of 100% so the hat clears the bottom of
+   the taller window it is given. See the occasion block near the top. */
+@keyframes bgb-peek-party {
+  0%, 7%    { transform: translateY(160%); }
+  19%, 83%  { transform: translateY(12%); }
+  51%       { transform: translateY(8%); }
+  95%, 100% { transform: translateY(160%); }
+}
+
 @keyframes bgb-blink {
   0%, 92%, 100% { transform: scaleY(1); }
   95%           { transform: scaleY(0.1); }
@@ -1292,8 +1446,16 @@ input[type='range']::-moz-range-thumb {
     transform: translateY(100%);
   }
 
+  /* Further, for the same reason the party keyframes go further: the hat. */
+  :root[data-occasion='birthday'] .panda {
+    transform: translateY(160%);
+  }
+
+  /* !important, matching this block's own idiom above: the occasion rules that
+     bring the extra confetti out are more specific than a bare .petal and would
+     otherwise leave four pieces frozen at the top of the sky. */
   .petal {
-    display: none;
+    display: none !important;
   }
 
   *,

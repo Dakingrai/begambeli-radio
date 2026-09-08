@@ -238,11 +238,11 @@ export function dailyWindowAt(daily, nowSeconds) {
 /* Days per month, with February capped at 28 deliberately — see parseMonthDay. */
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-function parseMonthDay(value) {
+function parseMonthDay(value, label) {
   const m = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(String(value ?? ''));
   if (!m) {
     throw new Error(
-      `Schedule: occasion.on must look like "09-08", not ${JSON.stringify(value)}.`,
+      `Schedule: ${label}.on must look like "09-08", not ${JSON.stringify(value)}.`,
     );
   }
 
@@ -256,7 +256,7 @@ function parseMonthDay(value) {
   // 31 April becomes 1 May every year — so a birthday would quietly move.
   if (day > DAYS_IN_MONTH[month - 1]) {
     throw new Error(
-      `Schedule: occasion.on is ${JSON.stringify(value)}, which is not a day that ` +
+      `Schedule: ${label}.on is ${JSON.stringify(value)}, which is not a day that ` +
         'every year has. Pick one that is; the calendar here stops at 28 February.',
     );
   }
@@ -283,34 +283,59 @@ function parseMonthDay(value) {
  * to cross midnight — which is exactly the shape makeDaily refuses. Do not
  * "harmonise" the two blocks; they are different on purpose.
  *
- * Returns null when there is no occasion configured.
+ * `occasion` may be one window or an ordered list of them, and the list is a
+ * priority order rather than a timetable: windows are allowed to overlap, and
+ * where they do, the earliest one in the list that is open wins. That is what
+ * lets a short window sit on top of a long one — half an hour of one song as
+ * the party opens, laid over the birthday playlist that runs all day — without
+ * either of them having to know about the other. The one underneath is
+ * pre-empted, not restarted: its own loop goes on running against its own
+ * opening instant, so when the short window closes the station rejoins it
+ * where it would have been, the way a broadcast comes back from an interruption.
+ *
+ * Returns null when there is no occasion configured, so a playlist without one
+ * behaves exactly as it always did.
  */
-export function makeOccasion(data) {
-  const occasion = data?.occasion;
-  if (occasion === undefined || occasion === null) return null;
-  if (typeof occasion !== 'object') throw new Error('Schedule: `occasion` must be an object.');
+export function makeOccasions(data) {
+  const raw = data?.occasion;
+  if (raw === undefined || raw === null) return null;
 
-  const { month, day } = parseMonthDay(occasion.on);
-  const from = parseTimeOfDay(occasion.from, 'occasion.from');
-  const zone = parseZoneOffset(occasion.zone, 'occasion.zone');
+  const list = Array.isArray(raw) ? raw : [raw];
+  if (list.length === 0) return null;
+
+  return Object.freeze(list.map((entry, i) => makeOccasion(entry, Array.isArray(raw) ? i : null)));
+}
+
+function makeOccasion(occasion, index) {
+  // Named so a message about the second window in a list says which one it is,
+  // and still reads as `occasion.on` when there is only the one.
+  const at = index === null ? 'occasion' : `occasion[${index}]`;
+
+  if (!occasion || typeof occasion !== 'object') {
+    throw new Error(`Schedule: \`${at}\` must be an object.`);
+  }
+
+  const { month, day } = parseMonthDay(occasion.on, at);
+  const from = parseTimeOfDay(occasion.from, `${at}.from`);
+  const zone = parseZoneOffset(occasion.zone, `${at}.zone`);
 
   if (!Number.isInteger(occasion.minutes) || occasion.minutes <= 0) {
     throw new Error(
-      'Schedule: occasion.minutes must be a positive whole number of minutes, not ' +
+      `Schedule: ${at}.minutes must be a positive whole number of minutes, not ` +
         `${JSON.stringify(occasion.minutes)}.`,
     );
   }
 
   const tracks = occasion.tracks;
   if (!Array.isArray(tracks) || tracks.length === 0) {
-    throw new Error('Schedule: `occasion.tracks` must be a non-empty array.');
+    throw new Error(`Schedule: \`${at}.tracks\` must be a non-empty array.`);
   }
   for (const [i, track] of tracks.entries()) {
     if (!track || typeof track.id !== 'string' || track.id.length === 0) {
-      throw new Error(`Schedule: occasion track ${i} is missing a YouTube id.`);
+      throw new Error(`Schedule: ${at} track ${i} is missing a YouTube id.`);
     }
     if (!Number.isFinite(track.duration) || track.duration <= 0) {
-      throw new Error(`Schedule: occasion track ${i} (${track.id}) has a bad duration.`);
+      throw new Error(`Schedule: ${at} track ${i} (${track.id}) has a bad duration.`);
     }
   }
 
@@ -337,13 +362,8 @@ function occasionStart(occasion, year) {
 }
 
 /**
- * Is `nowSeconds` inside the occasion, when did the one it belongs to open, and
- * how long until the next edge?
- *
- * Same shape as dailyWindowAt with one difference: `start` is null when we are
- * outside. A day always has a window slot to belong to, even a closed one; a
- * year does not, and inventing one would be a lie about a window that is eleven
- * months away. main.js only reads `start` under `inside`.
+ * One occasion's own answer: the opening instant of the run it is inside, or
+ * null, and the next time it opens after `nowSeconds`.
  *
  * The four candidate years look like more than are needed and are not. Both
  * ends are load-bearing once the zone offset is taken into account: `year - 1`
@@ -352,24 +372,65 @@ function occasionStart(occasion, year) {
  * opening always finds one — an occasion at 00:00 on 1 January in a zone east
  * of UTC opens *before* New Year in UTC terms, so `year + 1` can already be
  * behind us on 31 December.
+ */
+function occasionRunAt(occasion, nowSeconds) {
+  const year = new Date(nowSeconds * 1000).getUTCFullYear();
+  let start = null;
+  let next = Infinity;
+
+  for (const y of [year - 1, year, year + 1, year + 2]) {
+    const open = occasionStart(occasion, y);
+    if (nowSeconds >= open && nowSeconds < open + occasion.length) start = open;
+    else if (open > nowSeconds && open < next) next = open;
+  }
+
+  return { start, next };
+}
+
+/**
+ * Is `nowSeconds` inside any occasion, which one, when did the run it belongs
+ * to open, and how long until the next edge?
+ *
+ * Same shape as dailyWindowAt with two differences. `start` is null when we are
+ * outside: a day always has a window slot to belong to, even a closed one; a
+ * year does not, and inventing one would be a lie about a window that is eleven
+ * months away. And `occasion` names the window that won, because with a list
+ * the caller can no longer assume which playlist and which theme are in force.
+ * main.js only reads `start` and `occasion` under `inside`.
+ *
+ * `until` counts to the close of the winning run *or* to the next opening of
+ * any window in the list, whichever comes first — not just the winner's own
+ * end. A window higher up the list opening midway through a longer one below it
+ * changes what is playing and has to be woken for; the reverse does not, and
+ * costs a wake-up that finds the schedule unchanged and returns. That asymmetry
+ * is not worth the arithmetic to avoid.
  *
  * `until` is always greater than zero, so it can never arm a zero-length timer.
  * It can, however, be most of a year: callers arming a setTimeout on it must
  * clamp, because a delay past 2^31-1 ms fires immediately.
  */
-export function occasionWindowAt(occasion, nowSeconds) {
-  if (!occasion) return null;
+export function occasionWindowAt(occasions, nowSeconds) {
+  if (!occasions || occasions.length === 0) return null;
 
-  const year = new Date(nowSeconds * 1000).getUTCFullYear();
+  let winner = null;
+  let start = null;
+  let end = Infinity;
   let next = Infinity;
 
-  for (const y of [year - 1, year, year + 1, year + 2]) {
-    const start = occasionStart(occasion, y);
-    if (nowSeconds >= start && nowSeconds < start + occasion.length) {
-      return { inside: true, start, until: start + occasion.length - nowSeconds };
+  for (const occasion of occasions) {
+    const run = occasionRunAt(occasion, nowSeconds);
+    if (run.start !== null && winner === null) {
+      winner = occasion;
+      start = run.start;
+      end = run.start + occasion.length;
     }
-    if (start > nowSeconds && start < next) next = start;
+    if (run.next < next) next = run.next;
   }
 
-  return { inside: false, start: null, until: next - nowSeconds };
+  return {
+    inside: winner !== null,
+    occasion: winner,
+    start,
+    until: Math.min(end, next) - nowSeconds,
+  };
 }

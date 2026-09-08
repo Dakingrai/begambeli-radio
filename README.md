@@ -91,10 +91,17 @@ from the calendar year it is asked about, every call.
 **An impossible date does not throw, it moves.** `Date.UTC(2025, 1, 29)` is the 1st of
 March, and `Date.UTC(2026, 8, 31)` is the 1st of October — no error, no warning. An
 occasion written as `02-29` would therefore turn up on the wrong day in three years out of
-four. `makeOccasion` validates against a month table with February capped at 28 and refuses
+four. `makeOccasions` validates against a month table with February capped at 28 and refuses
 anything else, which is also what makes its fixed scan of nearby years complete. It builds
 the instant with `setUTCFullYear` rather than `Date.UTC` for a second reason: `Date.UTC`
 maps years 0-99 onto 1900-1999.
+
+**Two windows can share an opening instant, so the epoch is not a cache key.** The half hour
+of 50 Cent that opens the party and the birthday playlist it is laid over both begin at
+23:59, and each schedule is cached against the instant its window opened. Keyed on that
+alone, half past midnight finds a cached schedule with the right epoch and the wrong
+playlist, and the party never starts — the opener simply runs all day. `scheduleFor`
+compares the winning window as well as its start.
 
 **`setTimeout` cannot wait a year.** Its delay is a signed 32-bit millisecond count, so
 anything past about 24.85 days does not wait — it fires immediately, and the boundary timer
@@ -236,12 +243,49 @@ birthday playlist in its own loop, from the top at the moment the window opens; 
 19:11 loop goes round 75 times and is cut two minutes into the 76th. The five hours of the
 morning chant sit entirely inside it and are set aside for the day.
 
+#### Windows laid over windows
+
+`occasion` may also be a **list** of those blocks, and the list is a priority order rather
+than a timetable. Windows are allowed to overlap; where they do, the earliest one in the
+list that is open wins. That is what the file currently holds:
+
+```json
+"occasion": [
+  { "theme": "birthday", "on": "09-08", "from": "23:59", "minutes": 31,   … },
+  { "theme": "birthday", "on": "09-08", "from": "23:59", "minutes": 1441, … }
+]
+```
+
+Both open at 23:59. For the first half hour of the birthday the station plays nothing but
+In Da Club — seven times round and cut two minutes into the eighth — and at 00:30 the
+five-track playlist takes over for the rest of the day.
+
+**The window underneath is pre-empted, not delayed.** Its loop has been running against its
+own opening instant the whole time, so at 00:30 the station rejoins it 31 minutes in, part
+way through the fourth track, rather than starting it from the top. That is the same
+promise the rest of the station makes — the broadcast exists whether or not you are hearing
+it — and it is why the long window's own `from` and `minutes` did not have to change to
+make room for the short one. If you want the playlist to begin at the top instead, move its
+opening rather than stacking the two: give it `"from": "00:30"` on `09-09` and shorten it to
+match.
+
+A track may appear in more than one window, and In Da Club does — the opener is also the
+second track of the playlist underneath. The generator only refuses the overlaps that break
+a window's promise: a track in both `data/ids.txt` and a window, or in both the daily
+window and an occasion.
+
+The boundary timer wakes at the close of the window on top, which is what makes the
+handover land on the second. It also wakes for the *opening* of any window in the list,
+including one lower down that cannot change what is playing — that wake finds the schedule
+unchanged and returns, and is much cheaper than the arithmetic to tell the two cases apart.
+
 `minutes` rather than a closing time of day, because an occasion is expected to cross
 midnight — which is exactly the shape the `daily` block refuses. The two are not
 inconsistent, they are different on purpose; do not harmonise them.
 
 Like the chant, these tracks live here and **not** in `data/ids.txt`, and the generator
-refuses to run if you put one in both, or if a track is claimed by both windows at once.
+refuses to run if you put one in both, or if a track is claimed by both the daily window and
+an occasion at once.
 
 While the window is open the page wears it: `<html>` carries `data-occasion="birthday"`,
 which is the stylesheet's only hook. The panda comes up in a party hat, the falling petals
@@ -252,10 +296,12 @@ the hat needs is scoped to the attribute deliberately: `scripts/opengraph.html` 
 same stylesheet to render the social card, and a global change there would alter the
 committed artwork.
 
-If every track in the occasion is refused by a listener's browser, the occasion is stood
-down **for that listener only** and they fall back through the ordinary order — the chant if
-it is that hour, otherwise the loop. The same escape hatch the chant has, for the same
-reason: going dark is permanent, and some music beats none.
+If every track in an occasion is refused by a listener's browser, that window is stood down
+**for that listener only** and they fall through to whatever is next in the order — a lower
+window in the list, the chant if it is that hour, otherwise the loop. The same escape hatch
+the chant has, for the same reason: going dark is permanent, and some music beats none. It
+is per window rather than per file, so a browser that will not play the opener still gets
+the birthday playlist at 23:59 instead of waiting until 00:30 for it.
 
 ### Tracks that will not play
 

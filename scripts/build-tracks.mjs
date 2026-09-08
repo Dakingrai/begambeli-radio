@@ -312,9 +312,14 @@ async function refreshDaily(daily, item) {
 }
 
 /**
- * The same for the occasion's playlist: real durations, covers, and the
+ * The same for an occasion's playlist: real durations, covers, and the
  * availability warnings the loop tracks get. Titles and artists are left alone
  * for the same reason as the daily window's — they are written by hand.
+ *
+ * A track is allowed to appear in more than one window — the half hour that
+ * opens a party is a song the playlist underneath it also holds — so this can
+ * be asked to correct the same id twice. It is idempotent on purpose: the
+ * second pass finds the duration already right and prints the line again.
  */
 async function refreshOccasion(occasion, metadata) {
   for (const track of occasion.tracks) {
@@ -472,8 +477,12 @@ async function main() {
   // nobody notices until 6am, or until a birthday has already gone by.
   const daily = previous.daily ?? null;
   const dailyId = daily?.track?.id ?? null;
+  // One window or a list of them; the file is written back in whichever shape
+  // it arrived in, so a playlist with a single occasion is never rewritten into
+  // an array behind the author's back.
   const occasion = previous.occasion ?? null;
-  const occasionIds = (occasion?.tracks ?? []).map((t) => t.id);
+  const occasions = occasion === null ? [] : Array.isArray(occasion) ? occasion : [occasion];
+  const occasionIds = [...new Set(occasions.flatMap((o) => (o?.tracks ?? []).map((t) => t.id)))];
 
   // The one input that would break the promise a window makes. Their whole
   // point is that these songs play in their window and at no other hour;
@@ -583,7 +592,7 @@ async function main() {
   if (playlistId) await writeIdsFile(playlistId, tracks);
 
   if (daily) await refreshDaily(daily, metadata.get(dailyId));
-  if (occasion) await refreshOccasion(occasion, metadata);
+  for (const window of occasions) await refreshOccasion(window, metadata);
 
   // Assembled a key at a time rather than picked out of a ternary: the shape
   // that used to be written here named every block it knew about, so a block

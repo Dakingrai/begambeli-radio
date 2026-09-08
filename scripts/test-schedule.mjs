@@ -13,7 +13,7 @@ import {
   makeSchedule,
   makeDaily,
   dailyWindowAt,
-  makeOccasion,
+  makeOccasions,
   occasionWindowAt,
   positionAt,
   loopOffsetAt,
@@ -271,26 +271,45 @@ console.log('\noccasion window');
 /* 23:59 at +05:45 is 18:14 UTC the same day. 1441 minutes carries it to
    midnight at the end of the following day: 86460 seconds. */
 const PARTY_LEN = 86460;
+const birthdayBlock = () => ({
+  theme: 'birthday',
+  on: '09-08',
+  from: '23:59',
+  minutes: 1441,
+  zone: '+05:45',
+  tracks: [
+    { id: 'eeeeeeeeeee', title: 'E', artist: 'x', duration: 100 },
+    { id: 'fffffffffff', title: 'F', artist: 'x', duration: 250 },
+  ],
+});
 const partyOn = (y) => Date.UTC(y, 8, 8, 18, 14) / 1000;
 const PARTY = partyOn(2026);
-const occasion = makeOccasion({
+const PARTY_TRACKS = [
+  { id: 'eeeeeeeeeee', title: 'E', artist: 'x', duration: 100 },
+  { id: 'fffffffffff', title: 'F', artist: 'x', duration: 250 },
+];
+const occasion = makeOccasions({
   occasion: {
     theme: 'birthday',
     on: '09-08',
     from: '23:59',
     minutes: 1441,
     zone: '+05:45',
-    tracks: [
-      { id: 'eeeeeeeeeee', title: 'E', artist: 'x', duration: 100 },
-      { id: 'fffffffffff', title: 'F', artist: 'x', duration: 250 },
-    ],
+    tracks: PARTY_TRACKS,
   },
+});
+const [birthday] = occasion;
+
+test('one occasion or a list of them, and a lone block is still a list of one', () => {
+  assert.equal(occasion.length, 1);
+  assert.equal(makeOccasions({ occasion: [] }), null);
+  assert.equal(makeOccasions({ occasion: [birthdayBlock(), birthdayBlock()] }).length, 2);
 });
 
 test('23:59 Nepal on the 8th is 18:14 UTC, and the window runs to the end of the 9th', () => {
-  assert.equal(occasion.month, 9);
-  assert.equal(occasion.day, 8);
-  assert.equal(occasion.length, PARTY_LEN);
+  assert.equal(birthday.month, 9);
+  assert.equal(birthday.day, 8);
+  assert.equal(birthday.length, PARTY_LEN);
   assert.equal(occasionWindowAt(occasion, PARTY).start, PARTY);
 });
 
@@ -327,7 +346,7 @@ test('the occasion lands on the date every year, leap years included', () => {
     const w = occasionWindowAt(occasion, open);
     assert.equal(w.inside, true, `${y} was outside its own window`);
     assert.equal(w.start, open, `${y} drifted`);
-    const party = makeSchedule({ epoch: w.start, tracks: occasion.tracks });
+    const party = makeSchedule({ epoch: w.start, tracks: birthday.tracks });
     assert.equal(positionAt(party, open).offset, 0, `${y} did not start at the top`);
   }
   assert.equal(partyOn(2028) - partyOn(2027), 366 * 86400);
@@ -336,13 +355,13 @@ test('the occasion lands on the date every year, leap years included', () => {
 test('an occasion that crosses new year is still found on the far side of it', () => {
   // This is the only thing the year-before candidate exists for. Delete it and
   // the party stops at midnight on the 31st.
-  const newYear = makeOccasion({
+  const newYear = makeOccasions({
     occasion: {
       on: '12-31',
       from: '23:00',
       minutes: 120,
       zone: '+05:45',
-      tracks: [occasion.tracks[0]],
+      tracks: [PARTY_TRACKS[0]],
     },
   });
   const open = Date.UTC(2026, 11, 31, 17, 15) / 1000; // 23:00 +05:45
@@ -361,14 +380,14 @@ test('a clock set before the epoch does not throw or stall the occasion', () => 
 });
 
 test('a playlist with no occasion behaves exactly as it always did', () => {
-  assert.equal(makeOccasion({ epoch: EPOCH, tracks: [] }), null);
-  assert.equal(makeOccasion({ occasion: null }), null);
+  assert.equal(makeOccasions({ epoch: EPOCH, tracks: [] }), null);
+  assert.equal(makeOccasions({ occasion: null }), null);
   assert.equal(occasionWindowAt(null, PARTY), null);
+  assert.equal(occasionWindowAt([], PARTY), null);
 });
 
 test('a bad occasion throws rather than turning up on the wrong day', () => {
-  const ok = { on: '09-08', from: '23:59', minutes: 1441, zone: '+05:45', tracks: occasion.tracks };
-  const bad = (over) => () => makeOccasion({ occasion: { ...ok, ...over } });
+  const bad = (over) => () => makeOccasions({ occasion: { ...birthdayBlock(), ...over } });
   assert.throws(bad({ on: '9-8' }), /occasion\.on/);
   assert.throws(bad({ on: '13-01' }), /occasion\.on/);
   // Date.UTC rolls these into the next month without a word, which would move
@@ -383,6 +402,78 @@ test('a bad occasion throws rather than turning up on the wrong day', () => {
   assert.throws(bad({ tracks: [] }), /non-empty array/);
   assert.throws(bad({ tracks: [{ id: 'x', duration: 0 }] }), /bad duration/);
   assert.throws(bad({ tracks: [{ duration: 100 }] }), /missing a YouTube id/);
+});
+
+test('a bad window in a list says which one it was', () => {
+  assert.throws(
+    () => makeOccasions({ occasion: [birthdayBlock(), { ...birthdayBlock(), on: '02-30' }] }),
+    /occasion\[1\]\.on/,
+  );
+  assert.throws(() => makeOccasions({ occasion: [null] }), /`occasion\[0\]` must be an object/);
+});
+
+/* The shape actually shipped: half an hour of one song laid over the playlist
+   that runs all day, both opening at 23:59. */
+const OPENER_LEN = 31 * 60;
+const layered = makeOccasions({
+  occasion: [
+    { ...birthdayBlock(), minutes: 31, tracks: [{ id: 'ggggggggggg', duration: 248 }] },
+    birthdayBlock(),
+  ],
+});
+
+test('where two windows overlap the earlier one in the list wins', () => {
+  const opener = occasionWindowAt(layered, PARTY);
+  assert.equal(opener.inside, true);
+  assert.equal(opener.occasion, layered[0]);
+  assert.equal(opener.start, PARTY);
+
+  const after = occasionWindowAt(layered, PARTY + OPENER_LEN);
+  assert.equal(after.inside, true);
+  assert.equal(after.occasion, layered[1]);
+});
+
+test('the window underneath is pre-empted, not restarted', () => {
+  // Its own loop has been running against its own opening instant the whole
+  // time, so the station rejoins it where it would have been — the half hour
+  // is an interruption to a broadcast, not a delay to its start.
+  const after = occasionWindowAt(layered, PARTY + OPENER_LEN);
+  assert.equal(after.start, PARTY);
+  const party = makeSchedule({ epoch: after.start, tracks: PARTY_TRACKS });
+  assert.equal(loopOffsetAt(party, PARTY + OPENER_LEN), OPENER_LEN % party.total);
+  assert.equal(positionAt(party, PARTY + OPENER_LEN).index, 1);
+});
+
+test('the close of a window on top is an edge the caller is woken for', () => {
+  // Without it the boundary timer would sleep through the handover and the
+  // opener would run past its own end.
+  assert.equal(occasionWindowAt(layered, PARTY).until, OPENER_LEN);
+  assert.equal(occasionWindowAt(layered, PARTY + OPENER_LEN).until, PARTY_LEN - OPENER_LEN);
+  for (let t = PARTY - 5; t < PARTY + PARTY_LEN + 5; t += 1) {
+    assert.ok(occasionWindowAt(layered, t).until > 0, `until was not positive at ${t}`);
+  }
+});
+
+test('a window that opens midway through another is not slept through', () => {
+  // The opener moved an hour later: at 23:59 only the long window is on, and
+  // the next edge is the moment the short one takes over, not the long one's
+  // own end eleven hours away.
+  const later = makeOccasions({
+    occasion: [
+      {
+        ...birthdayBlock(),
+        on: '09-09',
+        from: '00:59',
+        minutes: 31,
+        tracks: [{ id: 'ggggggggggg', duration: 248 }],
+      },
+      birthdayBlock(),
+    ],
+  });
+  const w = occasionWindowAt(later, PARTY);
+  assert.equal(w.occasion, later[1]);
+  assert.equal(w.until, 3600);
+  assert.equal(occasionWindowAt(later, PARTY + 3600).occasion, later[0]);
 });
 
 test('the occasion swallows the morning window whole, so precedence matters', () => {
@@ -400,7 +491,12 @@ console.log('\nreal playlist');
 const rawReal = JSON.parse(await readFile(new URL('../data/tracks.json', import.meta.url), 'utf8'));
 const real = makeSchedule(rawReal);
 const realDaily = makeDaily(rawReal);
-const realOccasion = makeOccasion(rawReal);
+const realOccasions = makeOccasions(rawReal);
+const rawOccasions = rawReal.occasion === undefined || rawReal.occasion === null
+  ? []
+  : Array.isArray(rawReal.occasion)
+    ? rawReal.occasion
+    : [rawReal.occasion];
 
 test('data/tracks.json is a valid schedule', () => {
   assert.ok(real.total > 0);
@@ -443,34 +539,54 @@ test('the daily track never plays at any other hour', () => {
   );
 });
 
-test("data/tracks.json's occasion is valid", () => {
-  if (!realOccasion) return void console.log('       no occasion configured');
-  let total = 0;
-  for (const t of realOccasion.tracks) {
-    assert.match(t.id, /^[\w-]{11}$/, `${t.id} is not an 11-character id`);
-    assert.ok(t.title && t.artist, `${t.id} is missing title or artist`);
-    assert.ok(Number.isInteger(t.duration) && t.duration > 0, `${t.id} has a bad duration`);
-    total += t.duration;
-  }
-  const ids = realOccasion.tracks.map((t) => t.id);
-  assert.equal(new Set(ids).size, ids.length, 'the occasion repeats a track');
-  console.log(
-    `       ${rawReal.occasion.theme}, ${rawReal.occasion.on} from ` +
-      `${rawReal.occasion.from} ${rawReal.occasion.zone} for ${rawReal.occasion.minutes}m, ` +
-      `${ids.length} tracks, loop is ${formatClock(total)}, ` +
-      `${Math.floor(realOccasion.length / total)} full times round then cut after ` +
-      `${formatClock(realOccasion.length % total)}`,
-  );
+test("data/tracks.json's occasions are valid", () => {
+  if (!realOccasions) return void console.log('       no occasion configured');
+  realOccasions.forEach((occasion, i) => {
+    let total = 0;
+    for (const t of occasion.tracks) {
+      assert.match(t.id, /^[\w-]{11}$/, `${t.id} is not an 11-character id`);
+      assert.ok(t.title && t.artist, `${t.id} is missing title or artist`);
+      assert.ok(Number.isInteger(t.duration) && t.duration > 0, `${t.id} has a bad duration`);
+      total += t.duration;
+    }
+    const ids = occasion.tracks.map((t) => t.id);
+    assert.equal(new Set(ids).size, ids.length, 'an occasion repeats a track');
+    const raw = rawOccasions[i];
+    console.log(
+      `       ${occasion.theme}, ${raw.on} from ${raw.from} ${raw.zone} for ` +
+        `${raw.minutes}m, ${ids.length} tracks, loop is ${formatClock(total)}, ` +
+        `${Math.floor(occasion.length / total)} full times round then cut after ` +
+        `${formatClock(occasion.length % total)}`,
+    );
+  });
 });
 
 test('the occasion tracks never play on any other day', () => {
-  if (!realOccasion) return;
-  for (const t of realOccasion.tracks) {
+  if (!realOccasions) return;
+  for (const t of realOccasions.flatMap((o) => o.tracks)) {
     assert.ok(
       !real.tracks.some((loop) => loop.id === t.id),
       `${t.id} is in the ordinary loop as well as the occasion`,
     );
     assert.notEqual(t.id, realDaily?.track.id, `${t.id} is the daily track as well`);
+  }
+});
+
+test('every minute of the occasion has exactly one window claiming it', () => {
+  // A gap would drop the listener back to the loop mid-party without anyone
+  // meaning to. Walked a minute at a time from the first opening to the last
+  // close: cheap, and it checks the real file rather than a fixture.
+  if (!realOccasions) return;
+  const opens = realOccasions.map((o) => {
+    const at = new Date(0);
+    at.setUTCFullYear(2026, o.month - 1, o.day);
+    at.setUTCHours(0, 0, 0, 0);
+    return at.getTime() / 1000 + o.from - o.zone;
+  });
+  const first = Math.min(...opens);
+  const last = Math.max(...opens.map((open, i) => open + realOccasions[i].length));
+  for (let t = first; t < last; t += 60) {
+    assert.equal(occasionWindowAt(realOccasions, t).inside, true, `nothing was on air at ${t}`);
   }
 });
 

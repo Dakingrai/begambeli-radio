@@ -11,7 +11,7 @@ import {
   makeSchedule,
   makeDaily,
   dailyWindowAt,
-  makeOccasion,
+  makeOccasions,
   occasionWindowAt,
   positionAt,
   loopOffsetAt,
@@ -91,10 +91,11 @@ const state = {
   daily: null, // the morning window, or null if there is not one
   morning: null, // the one-track schedule for today's window, cached
   chantBlocked: false, // the window's track will not play for this listener
-  occasion: null, // the dated window — a birthday — or null if there is not one
+  occasions: null, // the dated windows — a birthday — in priority order, or null
   party: null, // the schedule for this year's occasion, cached
-  occasionBlocked: false, // none of the occasion's tracks will play here
-  partyOn: false, // is the occasion in force this second
+  partyOccasion: null, // and which of the occasions it was built from
+  blockedOccasions: new Set(), // those whose every track has been refused here
+  partyOn: false, // is an occasion in force this second
   skewMs: 0,
   player: null,
   loadedIndex: -1, // what is actually in the player, indexed into state.schedule
@@ -148,10 +149,22 @@ async function measureSkew() {
 
 /* -------------------------------------------------------- the windows -- */
 
-/** The occasion, if it is on and this listener can hear it. */
+/**
+ * The occasions this listener can still hear, in the order they outrank each
+ * other, or null if that leaves none. A window is dropped here rather than
+ * inside occasionWindowAt so the maths stays free of the concept: a stood-down
+ * window is not a window that closed early, it is one this browser never had.
+ */
+function audibleOccasions() {
+  if (!state.occasions) return null;
+  if (state.blockedOccasions.size === 0) return state.occasions;
+  const left = state.occasions.filter((o) => !state.blockedOccasions.has(o));
+  return left.length > 0 ? left : null;
+}
+
+/** The occasion in force, if there is one and this listener can hear it. */
 function partyWindow(nowSeconds) {
-  if (state.occasionBlocked) return null;
-  const window = occasionWindowAt(state.occasion, nowSeconds);
+  const window = occasionWindowAt(audibleOccasions(), nowSeconds);
   return window?.inside ? window : null;
 }
 
@@ -174,9 +187,14 @@ function scheduleFor(nowSeconds) {
   const party = partyWindow(nowSeconds);
   if (party) {
     // Keyed on the opening instant for the same reason the morning window is —
-    // a fixed epoch would walk the playlist forwards year after year.
-    if (state.party?.epoch !== party.start) {
-      state.party = makeSchedule({ epoch: party.start, tracks: state.occasion.tracks });
+    // a fixed epoch would walk the playlist forwards year after year — and on
+    // the window itself as well, because two of them can share an instant. The
+    // half hour that opens the party and the playlist it is laid over both
+    // begin at 23:59, so the epoch alone would hand back the cached half hour
+    // at half past midnight and the party would never start.
+    if (state.party?.epoch !== party.start || state.partyOccasion !== party.occasion) {
+      state.partyOccasion = party.occasion;
+      state.party = makeSchedule({ epoch: party.start, tracks: party.occasion.tracks });
     }
     return state.party;
   }
@@ -235,9 +253,7 @@ function untilNextChange(pos, nowSeconds) {
     const window = dailyWindowAt(state.daily, nowSeconds);
     if (window && !state.chantBlocked) edges.push(window.until);
 
-    const occasion = state.occasionBlocked
-      ? null
-      : occasionWindowAt(state.occasion, nowSeconds);
+    const occasion = occasionWindowAt(audibleOccasions(), nowSeconds);
     if (occasion) edges.push(occasion.until);
   }
 
@@ -465,7 +481,7 @@ function trackById(id) {
   return (
     state.regular.tracks.find((t) => t.id === id) ??
     (state.daily?.track.id === id ? state.daily.track : null) ??
-    state.occasion?.tracks.find((t) => t.id === id) ??
+    state.occasions?.flatMap((o) => o.tracks).find((t) => t.id === id) ??
     null
   );
 }
@@ -503,16 +519,28 @@ function handlePlayerError(code) {
   // and keep the party going. Only when every one of them has failed is the
   // occasion stood down, and then the listener falls back through scheduleFor —
   // to the chant if it is that hour, otherwise to the loop.
-  if (state.occasion?.tracks.some((t) => t.id === id)) {
+  const claiming = state.occasions?.filter((o) => o.tracks.some((t) => t.id === id)) ?? [];
+  if (claiming.length > 0) {
     state.unavailable.add(track.id);
 
-    if (state.occasion.tracks.every((t) => state.unavailable.has(t.id))) {
-      state.occasionBlocked = true;
+    // Every window the track belongs to, not just the one on air: a song can be
+    // in two of them, and the one it has just killed off may be the window
+    // three hours from now rather than this one.
+    for (const occasion of claiming) {
+      if (occasion.tracks.every((t) => state.unavailable.has(t.id))) {
+        state.blockedOccasions.add(occasion);
+      }
+    }
+
+    // Asked after standing them down, because the answer is the message: with a
+    // window still open we are moving on within the party, and only when none
+    // is left does the listener actually drop out of it.
+    if (partyWindow(now())) {
+      setNotice(`${track.title} won't play here — ${reason}. Moving on.`);
+    } else {
       setNotice(
         `The birthday playlist won't play here — ${reason}. Playing the usual loop instead.`,
       );
-    } else {
-      setNotice(`${track.title} won't play here — ${reason}. Moving on.`);
     }
 
     if (state.live) tuneToLive();
@@ -623,9 +651,10 @@ function onTick() {
  * runs every second over a scene of live animations.
  */
 function paintOccasion(nowSeconds) {
-  state.partyOn = Boolean(partyWindow(nowSeconds));
+  const party = partyWindow(nowSeconds);
+  state.partyOn = Boolean(party);
 
-  const theme = state.partyOn ? state.occasion.theme : undefined;
+  const theme = party ? party.occasion.theme : undefined;
   const root = document.documentElement;
   if (root.dataset.occasion === theme) return;
   if (theme) root.dataset.occasion = theme;
@@ -975,7 +1004,7 @@ async function start() {
 
   state.regular = makeSchedule(data);
   state.daily = makeDaily(data);
-  state.occasion = makeOccasion(data);
+  state.occasions = makeOccasions(data);
   state.schedule = state.regular;
   syncSchedule(now()); // open the page mid-window and it is already right
   buildRail();
